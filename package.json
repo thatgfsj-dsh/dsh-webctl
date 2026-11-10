@@ -45,7 +45,8 @@
     "build:client": "node scripts/build-client.mjs",
     "check:client": "node scripts/build-client.mjs --check",
     "smoke:e2e": "node scripts/e2e-smoke.mjs",
-    "smoke:faults": "node scripts/e2e-faults.mjs"
+    "smoke:faults": "node scripts/e2e-faults.mjs",
+    "check:search": "node scripts/search-check.mjs"
   },
   "repository": {
     "type": "git",
