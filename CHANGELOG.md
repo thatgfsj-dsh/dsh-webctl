@@ -22,6 +22,7 @@
 - **故障矩阵脚本**：`scripts/e2e-faults.mjs` 在隔离实例里制造“webctl 不存在”与“禁用工具行”两种故障，断言状态接口仍返回可读诊断（`WEBCTL_MISSING` / `MCP_NOT_REGISTERED`）且注册工具数为 0。
 - **架构图表**：`docs/ARCHITECTURE.md` 用 Mermaid 描述组件数据流、启动时序、状态采集、工具调用与降级回退决策树、验证分层。
 - **发布流程文档**：`docs/RELEASE.md` 给出自动化命令、人工检查单、tag/Release 步骤与回滚方式。
+- **A 批真实工具覆盖**：本地 fixture 站点扩展分页/表单/下载/robots/慢响应/大响应端点；真实调用 `paginate`（3 页）、`fill_form`（POST 200）、`download`（`UNSUPPORTED` + actionable）、`robots`（规则 + Sitemap）、`fetch` 的 `TIMEOUT`/`LIMIT`，以及 `cookies` 的未确认 `BLOCKED`、确认后 `values` 脱敏与文件 0600。
 - **真实会话工具测试**：临时 `WEBCTL_STATE_DIR` 下真实调用 `session list/save/load/clear`，断言会话文件落在状态目录内、权限 0600，且干净 OK 结果不会进入降级记录。
 - **无残留子进程守卫**：真实二进制契约测试新增“连续 5 次 MCP 探测后不新增存活 `webctl mcp` 进程”检查（POSIX）。
 - **真实降级链路测试**：本地 127.0.0.1 fixture 站点提供静态页与 JS 空壳页；真实 `fetch` 空壳页得到 `DEGRADED`（`degraded_from=js-render` + `actionable`），并走 `tools/result → DegradationLog` 断言记录内容；按 URL 的 `extract` 零命中同样为 `DEGRADED`。新增 `session list` 真实调用覆盖。

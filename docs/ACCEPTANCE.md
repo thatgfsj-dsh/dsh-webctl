@@ -16,21 +16,21 @@
 
 | 工具 | 自动化 | 说明 |
 | --- | --- | --- |
-| `fetch` | ✅ 本地站点 | 本机 127.0.0.1 fixture：静态页 OK + JS 空壳页 DEGRADED |
+| `fetch` | ✅ 本地站点 | 静态页 OK、空壳页 DEGRADED、慢响应 `TIMEOUT`、`max_bytes` 触发 `LIMIT` |
 | `extract` | ✅ 真实 | 内联 HTML + 本地站点按 URL（空壳页 DEGRADED） |
 | `search` | ✅ 真实 | 同上 |
 | `links` | ✅ 真实 | 同上 |
 | `tables` | ✅ 真实 | 同上 |
 | `forms` | ✅ 真实 | 同上 |
-| `fill_form` | ✗ | 有副作用（提交表单），只做人工点测 |
-| `paginate` | ✗ | 需多页站点，人工/联调 |
+| `fill_form` | ✅ 本地站点 | 本地 POST 表单提交 → 200 + 结果页；真实站点登录态仍人工 |
+| `paginate` | ✅ 本地站点 | 本地三页站点按 `rel=next` 翻页，末页 `next=null` |
 | `session` | ✅ 真实 | 临时 `WEBCTL_STATE_DIR` 下 list/save/load/clear，会话文件 0600 且落在状态目录内 |
-| `cookies` | ✗ | 需要已绑定且存活的会话（`session not found` 才算正常）；导出确认与脱敏需人工验证 |
+| `cookies` | ✅ 本地 | 未确认导出返回 `BLOCKED`；确认后响应 `values` 脱敏、文件 0600；真实 cookie 值脱敏仍人工 |
 | `json_query` | ✅ 真实 | 实测表达式需 `$` 前缀 |
 | `doc_text` | ✅ 真实 | 临时 HTML 文件 |
 | `embedded_data` | ✅ 真实 | JSON-LD 抽取 |
-| `download` | ✗ | 需要联网与落盘，人工验证 |
-| `robots` | ✗ | 需要联网，人工验证 |
+| `download` | ✅ 本地站点 | 本地 octet-stream 返回 `UNSUPPORTED` + `actionable`（上游语义）；真实文件落盘待人工 |
+| `robots` | ✅ 本地站点 | 本地 robots.txt：`wildcard` 规则与 `Sitemap` 解析 |
 | `resolve_site` | ✗ | 多通道联网，人工验证 |
 | `caps` | ✅ 真实 | 工具面与版本 |
 | `web_search` | ✗ | 需要联网；`0.2.3` 新字段用 fixture 覆盖（见 `docs/COMPATIBILITY.md`） |
