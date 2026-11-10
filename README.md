@@ -140,20 +140,21 @@ webctl 0.2.3 起支持 `WEBCTL_FALLBACK_TOOL=<名字>:<工具名>`：声明后�
 ## 开发
 
 ```bash
-node --test tests/                 # 离线单测（假 webctl / 假 MCP 服务）
+node --test tests/*.test.mjs       # 离线单测（假 webctl / 假 MCP 服务）
 node scripts/build-client.mjs      # 重新生成 client.js
+node scripts/build-client.mjs --check
 node --check client.js             # 客户端语法
 ```
 
-本地实例验证（不碰真实 profile）：
+真机冒烟（**不碰真实 `~/.dsh`**：临时 DSH_HOME + web 测试 profile + 随机端口，跑完删除）：
 
 ```bash
-export DSH_HOME=/tmp/dsh-webctl-home
-dsh --profile webtest --from-default-profile web --dump-config >/dev/null
-dsh plugin --profile webtest add "$PWD"
-dsh --profile webtest --port 0 --no-open
-# 用启动输出里的 token 打开页面，进入 设置 → webctl
+node scripts/e2e-smoke.mjs --webctl /path/to/webctl
+# 断言：插件安装成功、MCP 连通、18 个 mcp__webctl__* 已注册、
+#       状态接口字段齐全、client bundle 可下载且含 settings.section
 ```
+
+退出码：0 通过；1 失败；2 跳过（缺少 `dsh` 或 `webctl`）。加 `--keep` 保留临时目录便于排查。
 
 ## 版本兼容
 

@@ -43,7 +43,8 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "build:client": "node scripts/build-client.mjs",
-    "check:client": "node scripts/build-client.mjs --check"
+    "check:client": "node scripts/build-client.mjs --check",
+    "smoke:e2e": "node scripts/e2e-smoke.mjs"
   },
   "repository": {
     "type": "git",
