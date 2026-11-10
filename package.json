@@ -1,0 +1,40 @@
+{
+  "name": "dsh-webctl",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DeepSeek Harness 插件：通过 MCP 暴露 webctl 全部工具，并在设置页诊断 webctl 与 Playwright 状态。",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "src/**/*.mjs",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs/**/*.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.2 <0.3.0-0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thatgfsj-dsh/dsh-webctl.git"
+  },
+  "homepage": "https://github.com/thatgfsj-dsh/dsh-webctl",
+  "bugs": {
+    "url": "https://github.com/thatgfsj-dsh/dsh-webctl/issues"
+  },
+  "private": false
+}

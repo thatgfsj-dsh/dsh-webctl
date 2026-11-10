@@ -1,2 +1,172 @@
 # dsh-webctl
-DeepSeek Harness plugin integrating every webctl tool with structured Playwright fallback diagnostics
+
+**把 [webctl](https://github.com/Thatgfsj/webctl) 的全部 18 个工具接进 DeepSeek Harness（DSH），并在插件设置页诊断 webctl 与 Playwright 状态。**
+
+> Playwright 在这里只有一个身份：**当 webctl 明确报告“无法识别 / JS 渲染页”时的可选回退**。
+> webctl 本身不依赖浏览器、不执行外部进程；本插件也不会因为 Playwright 缺失而让 webctl 的工具消失。
+
+## 它做什么
+
+| 能力 | 说明 |
+| --- | --- |
+| 全量工具接入 | 通过官方 `@deepseek-ai/dsh-mcp-client` 行启动 `webctl mcp`，把 18 个工具注册成 `mcp__webctl__*`：`fetch` / `extract` / `search` / `links` / `tables` / `forms` / `fill_form` / `paginate` / `session` / `cookies` / `json_query` / `doc_text` / `embedded_data` / `download` / `robots` / `resolve_site` / `caps` / `web_search` |
+| webctl 诊断 | 可执行文件解析、`--version`、`caps --json`、真实 MCP 握手（initialize + tools/list），以及 **DSH 里实际注册到的工具清单** |
+| Playwright 诊断 | 包是否安装（名称/版本/路径）、浏览器缓存目录与已安装条目、`WEBCTL_FALLBACK_TOOL` 声明、可选的一次性启动冒烟 |
+| 设置页面板 | DSH「设置 → webctl」中展示以上状态、诊断与刷新按钮，无需看日志猜“为什么工具没出现” |
+
+## 架构
+
+```mermaid
+flowchart LR
+    subgraph DSH[DeepSeek Harness 宿主]
+        UI[设置页 webctl 面板]
+        P[dsh-webctl 宿主插件]
+        M[官方 mcp-client 行<br/>serverName=webctl]
+        T[ctx.tools 工具表]
+    end
+    W[webctl 可执行文件]
+    S[(webctl session 状态)]
+
+    UI -- "GET /api/dsh-webctl/status" --> P
+    P -- "--version / caps --json" --> W
+    P -- "一次性 MCP 握手" --> W
+    M -- "stdio: webctl mcp" --> W
+    M --> T
+    P -. "读取已注册的 mcp__webctl__*" .-> T
+    W --- S
+```
+
+- 工具由**官方 MCP 客户端**注册，本插件不重新实现 MCP 协议、不改写工具结果。
+- 宿主插件只用 Node 内置模块，不 import 任何 `@deepseek-ai/*` 包，因此没有依赖解析失败导致的“静默不加载”。
+- 状态接口只读；探测全部有超时与输出上限。
+
+## 安装
+
+要求：DSH `0.2.x`（实测 `0.2.2-rc.1`）；本机已安装 webctl（推荐 `0.2.2` 及以上，0.2.3 已合入上游主干的降级字段会逐步适配）。
+
+```bash
+# 从本地目录（开发时推荐）
+dsh plugin --profile web add /absolute/path/to/dsh-webctl
+
+# 从 tarball
+pnpm pack
+dsh plugin --profile web add /absolute/path/to/dsh-webctl-0.1.0.tgz
+```
+
+安装后**重启** `dsh web`。
+
+校验两行都已进入组合配置：
+
+```bash
+dsh --profile web --dump-config | grep -A8 "id: mcp-client-webctl"
+```
+
+## 配置
+
+本 bundle 插入两行，都可以在 **profile 的 `cordis.patch.yml`** 里按 id 覆盖（**覆盖会整体替换 config，必须重述每个键**）：
+
+```yaml
+# 1) 诊断插件：让它探测与 mcp-client 行相同的可执行文件
+- id: dsh-webctl
+  config:
+    command: /home/me/.local/bin/webctl
+    args: [mcp]
+    timeoutMs: 8000
+    serverName: webctl
+    playwright:
+      searchDirs: [/home/me/work/my-app]
+      launchSmoke: false
+
+# 2) 工具行：把命令换成绝对路径（不依赖 PATH）
+- id: mcp-client-webctl
+  config:
+    transport: stdio
+    serverName: webctl
+    command: /home/me/.local/bin/webctl
+    args: [mcp]
+    toolCallTimeoutMs: 60000
+    failOnStartupError: false
+```
+
+> 两行的 `command` 建议保持一致：诊断页会用 `dsh-webctl` 的 `command` 探测版本与 MCP 握手，
+> 而工具实际由 `mcp-client-webctl` 行启动。设置页同时显示**宿主实际注册到的工具清单**，
+> 二者不一致时一眼就能看出来。
+
+### 声明 Playwright 回退能力（可选）
+
+webctl 0.2.3 起支持 `WEBCTL_FALLBACK_TOOL=<名字>:<工具名>`：声明后，只有 `fallback_hint.playwright_suitable=true` 的降级信封才会在 `next_steps` 里指向该工具。webctl **只给建议，绝不主动调用**。
+
+```yaml
+- id: mcp-client-webctl
+  config:
+    transport: stdio
+    serverName: webctl
+    command: /home/me/.local/bin/webctl
+    args: [mcp]
+    toolCallTimeoutMs: 60000
+    failOnStartupError: false
+    env:
+      WEBCTL_FALLBACK_TOOL: playwright:playwright_browser_snapshot
+```
+
+## 状态接口
+
+`GET /api/dsh-webctl/status`（同源会话鉴权，与 DSH 其它 `/api` 路由一致），`?refresh=1` 跳过 5 秒缓存：
+
+```json
+{
+  "ok": true,
+  "checkedAt": "2026-11-10T04:27:25.149Z",
+  "webctl": { "state": "ready", "version": "0.2.2", "resolvedPath": "/usr/local/bin/webctl", "toolCount": 18 },
+  "webctlMcp": { "state": "ready", "toolCount": 18, "registeredTools": ["mcp__webctl__fetch", "…"] },
+  "playwright": { "state": "partial", "package": { "found": true }, "browsers": { "exists": false } },
+  "diagnostics": [ { "level": "ok", "code": "MCP_REGISTERED", "message": "宿主已注册 18 个 mcp__ 工具。" } ]
+}
+```
+
+## Playwright 的边界
+
+- 默认**只读**：读 `node_modules/playwright*/package.json` 与浏览器缓存目录，**不执行任何用户代码、不下载浏览器、不启动浏览器、不访问站点**。
+- 可选的一次性启动冒烟（`launchSmoke: true`）会启动 headless Chromium 并立即关闭，用来验证“包装了但浏览器坏了”这类情况；失败只影响诊断，不影响 webctl。
+- 登录态接力（webctl session → Playwright `storage_state`）属于后续里程碑，默认不导出、不注入。
+
+## 安全
+
+- 只用 `spawn(argv)`、`shell: false`；路径来自配置，不从网页内容拼接。
+- 探测输出有字节上限与超时；诊断里不包含页面内容、cookie 或凭据。
+- 工具结果按 webctl 的信封原样交给模型，网页内容仍是不可信输入（`trust: untrusted_page_content`）。
+- `fill_form`、`cookies` 等有副作用/敏感操作遵循 webctl 自身的确认与脱敏语义。
+
+## 开发
+
+```bash
+node --test tests/                 # 离线单测（假 webctl / 假 MCP 服务）
+node scripts/build-client.mjs      # 重新生成 client.js
+node --check client.js             # 客户端语法
+```
+
+本地实例验证（不碰真实 profile）：
+
+```bash
+export DSH_HOME=/tmp/dsh-webctl-home
+dsh --profile webtest --from-default-profile web --dump-config >/dev/null
+dsh plugin --profile webtest add "$PWD"
+dsh --profile webtest --port 0 --no-open
+# 用启动输出里的 token 打开页面，进入 设置 → webctl
+```
+
+## 版本兼容
+
+| 组件 | 支持范围 | 说明 |
+| --- | --- | --- |
+| DSH | `>=0.2.1-rc.2 <0.3.0-0` | 实测 `0.2.2-rc.1` |
+| webctl | `0.2.2`（18 工具）起 | 0.1.x 只有 15 个工具，状态页会显示实际数量 |
+| Playwright | 任意 | 仅诊断，不参与 webctl 运行 |
+
+## 路线图
+
+里程碑与拆分见 [Issues](https://github.com/thatgfsj-dsh/dsh-webctl/issues) 与总议题 [#1](https://github.com/thatgfsj-dsh/dsh-webctl/issues/1)。
+
+## License
+
+MIT

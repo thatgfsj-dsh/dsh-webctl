@@ -1,0 +1,15 @@
+# 本 bundle 的两行：宿主插件（诊断与设置页）与官方 MCP 客户端（暴露 webctl 的 18 个工具）。
+# 行 id 在 profile 的 cordis.patch.yml 里可被覆盖：把 command 换成 webctl 的绝对路径即可。
+- insert:
+    - id: dsh-webctl
+      name: dsh-webctl
+
+    - id: mcp-client-webctl
+      name: "@deepseek-ai/dsh-mcp-client"
+      config:
+        transport: stdio
+        serverName: webctl
+        command: webctl
+        args: ["mcp"]
+        toolCallTimeoutMs: 60000
+        failOnStartupError: false
