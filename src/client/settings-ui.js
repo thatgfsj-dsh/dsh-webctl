@@ -281,6 +281,53 @@ function PlaywrightPanel({ status, t }) {
 }
 
 /**
+ * 最近降级与回退建议：把 webctl 的 actionable / fallback_hint 变成可读的下一步。
+ * @param {{status: object, t: Function}} props - 属性。
+ * @returns {object} 元素。
+ */
+function DegradationPanel({ status, t }) {
+  const records = status.recentDegradations
+  const readiness = status.fallbackReadiness
+  const tone = records.length === 0
+    ? 'neutral'
+    : readiness.playwrightSuitableSeen
+      ? (readiness.playwrightReady ? 'ok' : 'warn')
+      : 'neutral'
+  const content = records.length === 0
+    ? h('p', { style: styles.hint }, t('degradation.empty'))
+    : h('div', { style: styles.diagList },
+      records.map((record, index) => {
+        const hint = record.fallbackHint
+        const parts = []
+        if (record.reason !== null) parts.push(h('div', { key: 'reason', style: styles.diagMessage }, record.reason))
+        if (record.nextSteps.length > 0) {
+          parts.push(h('div', { key: 'next', style: styles.diagHint }, t('degradation.nextSteps') + '：' + record.nextSteps.join(' / ')))
+        }
+        if (hint !== null) {
+          const verdict = hint.playwrightSuitable ? t('degradation.playwrightSuitable') : t('degradation.notSuitable')
+          const signals = hint.signals.length > 0 ? '（' + hint.signals.join('; ') + '）' : ''
+          parts.push(h('div', { key: 'hint', style: styles.diagHint }, verdict + signals))
+        }
+        return h('div', { key: 'degradation-' + index, style: styles.diagItem },
+          h('div', { style: styles.diagHead },
+            h('span', { style: styles.diagCode }, record.tool),
+            record.code === null ? null : h('span', { style: styles.diagCode }, record.code),
+            record.degradedFrom === null ? null : h('span', { style: styles.diagHint }, record.degradedFrom),
+            record.at === null ? null : h('span', { style: styles.diagHint }, new Date(record.at).toLocaleTimeString()),
+          ),
+          h('div', { style: styles.diagBody }, parts),
+        )
+      }),
+    )
+  return h(Panel, {
+    title: t('degradation.title'),
+    badge: h(Badge, { tone, text: t('degradation.count', { n: records.length }) }),
+  },
+  readiness.advice === '' ? null : h('p', { style: styles.hint }, readiness.advice),
+  content)
+}
+
+/**
  * 诊断列表：按 level 用主题 token 着色。
  * @param {{status: object, t: Function}} props - 属性。
  * @returns {object} 元素。
@@ -431,6 +478,7 @@ function WebctlSettingsSection({ t }) {
       : h(React.Fragment, null,
         h(WebctlPanel, { status, t }),
         h(PlaywrightPanel, { status, t }),
+        h(DegradationPanel, { status, t }),
         h(DiagnosticsPanel, { status, t }),
         h(ToolsPanel, { status, t }),
       ),

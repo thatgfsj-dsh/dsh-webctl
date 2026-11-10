@@ -27,7 +27,9 @@ const ZH = { 'settings.title': 'webctl 状态', 'settings.description': '检查 
 'playwright.fallback': 'WEBCTL_FALLBACK_TOOL', 'playwright.fallbackDeclared': '已声明（{tool}）', 'playwright.fallbackDeclaredNoTool': '已声明', 'playwright.fallbackMissing': '未声明', 'playwright.launchSmoke': '启动冒烟',
 'playwright.smoke.disabled': '未启用', 'playwright.smoke.untested': '未测试', 'playwright.smoke.passed': '通过', 'playwright.smoke.failed': '失败', 'diagnostics.title': '诊断', 'diagnostics.count': '{n} 条',
 'diagnostics.empty': '暂无诊断信息', 'tools.summary': '工具清单（webctl {webctl} / MCP {mcp}）', 'tools.webctl': 'webctl caps', 'tools.mcp': 'MCP tools/list', 'tools.empty': '没有工具', 'tools.missingInMcp': '（MCP 未返回）',
-'tools.registered': 'DSH 已注册工具', 'tools.registeredEmpty': '宿主尚未注册 mcp__ 工具', 'tools.summaryRegistered': '工具清单（webctl {webctl} / MCP {mcp} / 已注册 {registered}）', 'level.ok': '正常', 'level.warn': '警告', 'level.error': '错误', }
+'tools.registered': 'DSH 已注册工具', 'tools.registeredEmpty': '宿主尚未注册 mcp__ 工具', 'tools.summaryRegistered': '工具清单（webctl {webctl} / MCP {mcp} / 已注册 {registered}）', 'level.ok': '正常', 'degradation.title': '最近降级与回退',
+'degradation.empty': '还没有观察到 webctl 降级（只记录带 actionable / fallback_hint 的结果）', 'degradation.count': '{n} 条', 'degradation.nextSteps': '建议下一步', 'degradation.playwrightSuitable': '适合 Playwright 回退',
+'degradation.notSuitable': '不适合 Playwright 回退', 'degradation.signals': '信号', 'degradation.tool': '工具', 'level.warn': '警告', 'level.error': '错误', }
 /** 英文词典。 */
 const EN = { 'settings.title': 'webctl status', 'settings.description': 'Checks whether webctl, its 18 MCP tools and the Playwright fallback are ready.', 'settings.refresh': 'Refresh',
 'settings.refreshing': 'Refreshing…', 'settings.loading': 'Probing the environment…', 'settings.loadFailed': 'Failed to load status: {detail}', 'settings.retry': 'Retry', 'settings.lastChecked': 'Last checked: {time}',
@@ -43,7 +45,10 @@ const EN = { 'settings.title': 'webctl status', 'settings.description': 'Checks 
 'playwright.launchSmoke': 'Launch smoke', 'playwright.smoke.disabled': 'Disabled', 'playwright.smoke.untested': 'Not tested', 'playwright.smoke.passed': 'Passed', 'playwright.smoke.failed': 'Failed',
 'diagnostics.title': 'Diagnostics', 'diagnostics.count': '{n}', 'diagnostics.empty': 'No diagnostics', 'tools.summary': 'Tools (webctl {webctl} / MCP {mcp})', 'tools.webctl': 'webctl caps', 'tools.mcp': 'MCP tools/list',
 'tools.empty': 'No tools', 'tools.missingInMcp': '(missing from MCP)', 'tools.registered': 'Registered in DSH', 'tools.registeredEmpty': 'No mcp__ tools registered yet',
-'tools.summaryRegistered': 'Tools (webctl {webctl} / MCP {mcp} / registered {registered})', 'level.ok': 'OK', 'level.warn': 'Warning', 'level.error': 'Error', }
+'tools.summaryRegistered': 'Tools (webctl {webctl} / MCP {mcp} / registered {registered})', 'level.ok': 'OK', 'degradation.title': 'Recent degradations and fallback',
+'degradation.empty': 'No webctl degradation observed yet (only results with actionable / fallback_hint are recorded)', 'degradation.count': '{n} record(s)', 'degradation.nextSteps': 'Next steps',
+'degradation.playwrightSuitable': 'Playwright fallback suitable', 'degradation.notSuitable': 'Playwright fallback not suitable', 'degradation.signals': 'Signals', 'degradation.tool': 'Tool', 'level.warn': 'Warning',
+'level.error': 'Error', }
 /** 状态对应的文案键。 */
 const STATE_KEYS = { ready: 'state.ready', missing: 'state.missing', error: 'state.error', skipped: 'state.skipped', 'not-checked': 'state.notChecked', partial: 'state.partial', unknown: 'state.unknown', }
 /** 状态对应的徽标色调。 */
@@ -214,6 +219,14 @@ const mcpTools = asArray(mcp.tools).filter(item => typeof item === 'string')
 const registeredTools = Array.isArray(mcp.registeredTools)
 ? mcp.registeredTools.filter(item => typeof item === 'string')
 : null
+const readinessSource = asRecord(source.fallbackReadiness)
+const degradations = asArray(source.recentDegradations).filter(isRecord).map(item => { const hint = isRecord(item.fallbackHint) ? item.fallbackHint : null
+return { at: asNumber(item.at), tool: asString(item.tool), code: nullableString(item.code), degradedFrom: nullableString(item.degradedFrom), error: nullableString(item.error), reason: nullableString(item.reason),
+detected: asArray(item.detected).filter(value => typeof value === 'string'), nextSteps: asArray(item.nextSteps).filter(value => typeof value === 'string'), fallbackHint: hint === null
+? null
+: { playwrightSuitable: hint.playwrightSuitable === true, signals: asArray(hint.signals).filter(value => typeof value === 'string'), embeddedDataTried: hint.embeddedDataTried === true,
+jsEngineSuitable: hint.jsEngineSuitable === true, }, }
+})
 return { ok: source.ok === true, checkedAt: asString(source.checkedAt), cached: source.cached === true, durationMs: asNumber(source.durationMs), webctl: {
 state: normalizeState(webctl.state, ['ready', 'missing', 'error']), command: asString(webctl.command), resolvedPath: nullableString(webctl.resolvedPath), version: nullableString(webctl.version), tools: webctlTools,
 toolCount: asNumber(webctl.toolCount) ?? webctlTools.length, fallbackCapability: isRecord(webctl.fallbackCapability) ? webctl.fallbackCapability : null, error: normalizeError(webctl.error), }, mcp: {
@@ -223,8 +236,10 @@ error: normalizeError(mcp.error), }, playwright: { state: normalizeState(playwri
 version: nullableString(pkg.version), path: nullableString(pkg.path), searchedDirs: asArray(pkg.searchedDirs).filter(item => typeof item === 'string'), }, browsers: { path: nullableString(browsers.path),
 exists: browsers.exists === true, entries: asArray(browsers.entries).filter(isRecord).map(item => ({ name: asString(item.name), version: asString(item.version), })), }, fallback: {
 declaredInEnv: fallback.declaredInEnv === true, toolName: nullableString(fallback.toolName), }, launchSmoke: { enabled: smoke.enabled === true, tested: smoke.tested === true,
-ok: smoke.ok === true ? true : smoke.ok === false ? false : null, error: textOf(smoke.error), }, error: textOf(playwright.error), }, diagnostics: asArray(source.diagnostics).filter(isRecord).map(item => ({
-level: normalizeLevel(item.level), code: asString(item.code), message: asString(item.message), hint: asString(item.hint), })), }
+ok: smoke.ok === true ? true : smoke.ok === false ? false : null, error: textOf(smoke.error), }, error: textOf(playwright.error), }, recentDegradations: degradations, fallbackReadiness: {
+recentDegradations: asNumber(readinessSource.recentDegradations) ?? degradations.length, playwrightSuitableSeen: readinessSource.playwrightSuitableSeen === true, playwrightReady: readinessSource.playwrightReady === true,
+advice: asString(readinessSource.advice), }, diagnostics: asArray(source.diagnostics).filter(isRecord).map(item => ({ level: normalizeLevel(item.level), code: asString(item.code), message: asString(item.message),
+hint: asString(item.hint), })), }
 }
 /**
 * 状态文案。
@@ -439,6 +454,36 @@ h('h4', { style: styles.subTitle }, t('playwright.fallback')), h(InfoGrid, { row
 h(Badge, { tone: smoke.enabled ? (smoke.tested ? (smoke.ok === true ? 'ok' : 'error') : 'neutral') : 'neutral', text: smokeLabel(smoke, t) }), ), h(InfoGrid, { rows: smokeRows }), ), )
 }
 /**
+* 最近降级与回退建议：把 webctl 的 actionable / fallback_hint 变成可读的下一步。
+* @param {{status: object, t: Function}} props - 属性。
+* @returns {object} 元素。
+*/
+function DegradationPanel({ status, t }) { const records = status.recentDegradations
+const readiness = status.fallbackReadiness
+const tone = records.length === 0
+? 'neutral'
+: readiness.playwrightSuitableSeen
+? (readiness.playwrightReady ? 'ok' : 'warn')
+: 'neutral'
+const content = records.length === 0
+? h('p', { style: styles.hint }, t('degradation.empty'))
+: h('div', { style: styles.diagList }, records.map((record, index) => { const hint = record.fallbackHint
+const parts = []
+if (record.reason !== null) parts.push(h('div', { key: 'reason', style: styles.diagMessage }, record.reason))
+if (record.nextSteps.length > 0) { parts.push(h('div', { key: 'next', style: styles.diagHint }, t('degradation.nextSteps') + '：' + record.nextSteps.join(' / ')))
+}
+if (hint !== null) { const verdict = hint.playwrightSuitable ? t('degradation.playwrightSuitable') : t('degradation.notSuitable')
+const signals = hint.signals.length > 0 ? '（' + hint.signals.join('; ') + '）' : ''
+parts.push(h('div', { key: 'hint', style: styles.diagHint }, verdict + signals))
+}
+return h('div', { key: 'degradation-' + index, style: styles.diagItem }, h('div', { style: styles.diagHead }, h('span', { style: styles.diagCode }, record.tool),
+record.code === null ? null : h('span', { style: styles.diagCode }, record.code), record.degradedFrom === null ? null : h('span', { style: styles.diagHint }, record.degradedFrom),
+record.at === null ? null : h('span', { style: styles.diagHint }, new Date(record.at).toLocaleTimeString()), ), h('div', { style: styles.diagBody }, parts), )
+}), )
+return h(Panel, { title: t('degradation.title'), badge: h(Badge, { tone, text: t('degradation.count', { n: records.length }) }), }, readiness.advice === '' ? null : h('p', { style: styles.hint }, readiness.advice),
+content)
+}
+/**
 * 诊断列表：按 level 用主题 token 着色。
 * @param {{status: object, t: Function}} props - 属性。
 * @returns {object} 元素。
@@ -526,7 +571,7 @@ h('p', { style: styles.description }, t('settings.description')), ), h('button',
 ? null
 : h(ErrorBanner, { message: error, t, onRetry: refresh }), status === null
 ? null
-: h(React.Fragment, null, h(WebctlPanel, { status, t }), h(PlaywrightPanel, { status, t }), h(DiagnosticsPanel, { status, t }), h(ToolsPanel, { status, t }), ), )
+: h(React.Fragment, null, h(WebctlPanel, { status, t }), h(PlaywrightPanel, { status, t }), h(DegradationPanel, { status, t }), h(DiagnosticsPanel, { status, t }), h(ToolsPanel, { status, t }), ), )
 }
 /**
 * 插件入口：注册 locale 词典与设置页分区。

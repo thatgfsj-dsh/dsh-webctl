@@ -7,6 +7,7 @@
  * 18 个 webctl 工具由官方 @deepseek-ai/dsh-mcp-client 行（mcp-client-webctl）注册，
  * 本插件不重复实现工具，只负责诊断与展示。
  */
+import { DegradationLog } from './src/host/degradations.mjs'
 import { json, queryParam, withErrors } from './src/host/http.mjs'
 import { StatusService } from './src/host/status.mjs'
 
@@ -51,7 +52,16 @@ export function normalizeConfig(raw) {
  */
 export function apply(ctx, config) {
   const resolved = normalizeConfig(config)
-  const status = new StatusService(resolved, { getTools: () => ctx.get('tools') })
+  const degradations = new DegradationLog()
+  const status = new StatusService(resolved, {
+    getTools: () => ctx.get('tools'),
+    getDegradations: () => degradations.list(),
+  })
+
+  // 只观测 webctl 工具结果里的降级信封与 fallback_hint；不改写结果、不发起额外调用。
+  ctx.on('tools/result', (exec, result) => {
+    degradations.recordToolResult(exec, result)
+  })
   try {
     ctx.logger?.info?.(`[dsh-webctl] 已加载：webctl 命令 ${resolved.command}，serverName=${resolved.serverName}`)
   } catch {

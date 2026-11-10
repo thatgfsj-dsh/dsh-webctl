@@ -90,6 +90,14 @@ const ZH = {
   'tools.registeredEmpty': '宿主尚未注册 mcp__ 工具',
   'tools.summaryRegistered': '工具清单（webctl {webctl} / MCP {mcp} / 已注册 {registered}）',
   'level.ok': '正常',
+  'degradation.title': '最近降级与回退',
+  'degradation.empty': '还没有观察到 webctl 降级（只记录带 actionable / fallback_hint 的结果）',
+  'degradation.count': '{n} 条',
+  'degradation.nextSteps': '建议下一步',
+  'degradation.playwrightSuitable': '适合 Playwright 回退',
+  'degradation.notSuitable': '不适合 Playwright 回退',
+  'degradation.signals': '信号',
+  'degradation.tool': '工具',
   'level.warn': '警告',
   'level.error': '错误',
 }
@@ -173,6 +181,14 @@ const EN = {
   'tools.registeredEmpty': 'No mcp__ tools registered yet',
   'tools.summaryRegistered': 'Tools (webctl {webctl} / MCP {mcp} / registered {registered})',
   'level.ok': 'OK',
+  'degradation.title': 'Recent degradations and fallback',
+  'degradation.empty': 'No webctl degradation observed yet (only results with actionable / fallback_hint are recorded)',
+  'degradation.count': '{n} record(s)',
+  'degradation.nextSteps': 'Next steps',
+  'degradation.playwrightSuitable': 'Playwright fallback suitable',
+  'degradation.notSuitable': 'Playwright fallback not suitable',
+  'degradation.signals': 'Signals',
+  'degradation.tool': 'Tool',
   'level.warn': 'Warning',
   'level.error': 'Error',
 }
@@ -460,6 +476,28 @@ function normalizeStatus(raw) {
   const registeredTools = Array.isArray(mcp.registeredTools)
     ? mcp.registeredTools.filter(item => typeof item === 'string')
     : null
+  const readinessSource = asRecord(source.fallbackReadiness)
+  const degradations = asArray(source.recentDegradations).filter(isRecord).map(item => {
+    const hint = isRecord(item.fallbackHint) ? item.fallbackHint : null
+    return {
+      at: asNumber(item.at),
+      tool: asString(item.tool),
+      code: nullableString(item.code),
+      degradedFrom: nullableString(item.degradedFrom),
+      error: nullableString(item.error),
+      reason: nullableString(item.reason),
+      detected: asArray(item.detected).filter(value => typeof value === 'string'),
+      nextSteps: asArray(item.nextSteps).filter(value => typeof value === 'string'),
+      fallbackHint: hint === null
+        ? null
+        : {
+          playwrightSuitable: hint.playwrightSuitable === true,
+          signals: asArray(hint.signals).filter(value => typeof value === 'string'),
+          embeddedDataTried: hint.embeddedDataTried === true,
+          jsEngineSuitable: hint.jsEngineSuitable === true,
+        },
+    }
+  })
   return {
     ok: source.ok === true,
     checkedAt: asString(source.checkedAt),
@@ -514,6 +552,13 @@ function normalizeStatus(raw) {
         error: textOf(smoke.error),
       },
       error: textOf(playwright.error),
+    },
+    recentDegradations: degradations,
+    fallbackReadiness: {
+      recentDegradations: asNumber(readinessSource.recentDegradations) ?? degradations.length,
+      playwrightSuitableSeen: readinessSource.playwrightSuitableSeen === true,
+      playwrightReady: readinessSource.playwrightReady === true,
+      advice: asString(readinessSource.advice),
     },
     diagnostics: asArray(source.diagnostics).filter(isRecord).map(item => ({
       level: normalizeLevel(item.level),
