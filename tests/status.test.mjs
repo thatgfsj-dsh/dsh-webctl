@@ -80,3 +80,34 @@ test('probeMcpServer 对沉默的服务返回超时错误', async () => {
     assert.equal(result.error?.code, 'MCP_TIMEOUT')
   })
 })
+/**
+ * 构造带注册工具与 MCP 工具集的状态输入。
+ * @param {string[]} registered - 宿主已注册工具（含前缀）。
+ * @param {string[]} mcpTools - 探测到的 tools/list。
+ * @returns {object} composeStatus 输入。
+ */
+function mismatchInput(registered, mcpTools) {
+  return {
+    webctl: { state: 'ready', command: 'webctl', resolvedPath: '/usr/bin/webctl', version: '0.2.2', caps: { version: '0.2.2', tools: mcpTools.map((name) => ({ name, state: 'available' })), fallbackCapability: null }, error: null },
+    mcp: { state: 'ready', serverInfo: { name: 'webctl', version: '0.2.2' }, protocolVersion: '2025-06-18', tools: mcpTools, error: null },
+    playwright: { state: 'missing', package: { found: false, name: null, version: null, path: null, searchedDirs: [] }, browsers: { path: null, exists: false, entries: [] }, fallback: { declaredInEnv: false, toolName: null }, launchSmoke: { enabled: false, tested: false, ok: null, error: null }, error: null },
+    registeredTools: registered,
+    degradations: [],
+    config: { command: 'webctl', serverName: 'webctl' },
+    durationMs: 5,
+  }
+}
+
+test('composeStatus：工具行少注册工具时给出 MCP_REGISTRATION_MISMATCH', () => {
+  const status = composeStatus(mismatchInput(['mcp__webctl__fetch'], ['fetch', 'web_search']))
+  const codes = status.diagnostics.map((item) => item.code)
+  assert.ok(codes.includes('MCP_REGISTRATION_MISMATCH'))
+  const item = status.diagnostics.find((entry) => entry.code === 'MCP_REGISTRATION_MISMATCH')
+  assert.match(item.hint, /web_search/)
+  assert.match(item.hint, /mcp-client-webctl/)
+})
+
+test('composeStatus：工具集合一致时不报警', () => {
+  const status = composeStatus(mismatchInput(['mcp__webctl__fetch', 'mcp__webctl__web_search'], ['fetch', 'web_search']))
+  assert.equal(status.diagnostics.some((item) => item.code === 'MCP_REGISTRATION_MISMATCH'), false)
+})
