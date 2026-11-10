@@ -20,4 +20,6 @@
 - **降级观测与回退建议**：监听 `tools/result`，从 webctl 信封提取 `meta.actionable` 与 `fallback_hint`（`playwright_suitable`/`signals`/`embedded_data_tried`/`js_engine_suitable`），保留最近 20 条；状态接口输出 `recentDegradations` 与 `fallbackReadiness`，设置页新增“最近降级与回退”分区。仅当出现 `playwright_suitable=true` 且 Playwright 未就绪时给出 `PLAYWRIGHT_FALLBACK_UNAVAILABLE` 警告（先试 `embedded_data`，不要放弃 webctl 静态能力）。记录不含页面内容或凭据。
 - **端到端冒烟脚本**：`node scripts/e2e-smoke.mjs --webctl <path>` 在临时 `DSH_HOME` 里创建 web profile、安装插件、启动随机端口实例，断言 MCP 连通、`mcp__webctl__*` 注册数、状态接口字段与 client bundle 可下载；结束自动清理，缺 `dsh`/`webctl` 时以退出码 2 跳过。
 - **真实二进制契约守卫**：`WEBCTL_BIN=... node --test tests/contract.test.mjs` 校验 `caps` 与 MCP `tools/list` 工具面/版本一致，并验证两次 MCP 探测可并发成功（对应 DSH 的探测 + 服务双启动约束）；未设置时自动跳过。
+- **安全模型文档**：`docs/SECURITY.md` 说明信任边界（页面内容/可执行文件/工具结果/Playwright/凭据）、默认最小权限姿态、已知风险与缓解。
+- **多平台路径测试**：`resolveExecutable` 增加 `platform='win32'` 的 `PATHEXT` 解析用例与显式路径不做 PATH 搜索的用例。
 - **离线单测**：假 webctl 覆盖 ready / missing / 版本失败 / 超时 / 路径解析。

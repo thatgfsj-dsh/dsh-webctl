@@ -100,3 +100,20 @@ test('runCommand 超时会终止进程', async () => {
     assert.equal(result.timedOut, true)
   })
 })
+test('resolveExecutable 在 Windows 上按 PATHEXT 解析（平台参数可测）', async () => {
+  await withTempDir(async (dir) => {
+    const exe = join(dir, 'webctl.EXE')
+    await writeFile(exe, 'binary')
+    const resolved = resolveExecutable('webctl', { PATH: dir, PATHEXT: '.EXE;.CMD' }, 'win32')
+    assert.equal(resolved, exe)
+    assert.equal(resolveExecutable('webctl', { PATH: dir, PATHEXT: '.CMD' }, 'win32'), null)
+  })
+})
+
+test('resolveExecutable 对显式相对/绝对路径不做 PATH 搜索', async () => {
+  await withTempDir(async (dir) => {
+    const exe = await writeFakeWebctl(dir, 'echo webctl 0.2.2\n')
+    assert.equal(resolveExecutable(exe, { PATH: '' }), exe)
+    assert.equal(resolveExecutable(join(dir, 'missing'), { PATH: dir }), null)
+  })
+})
