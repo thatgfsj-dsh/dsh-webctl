@@ -1,16 +1,23 @@
 /**
- * dsh-webctl 宿主半边（第一片）：解析 webctl 可执行文件并暴露只读诊断接口。
+ * dsh-webctl 宿主半边：
+ * - 注册 /api/dsh-webctl/status 诊断接口（webctl 可执行文件、版本、caps、MCP 握手、Playwright）；
+ * - 启动后预热一次状态缓存，让设置页首次打开就有数据；
+ * - 不 import 任何 @deepseek-ai/* 包，只用 Node 内置模块与本仓库相对路径。
  *
- * 工具接入与状态合成在后续 PR 补齐；本文件不 import 任何 @deepseek-ai/* 包。
+ * 18 个 webctl 工具由官方 @deepseek-ai/dsh-mcp-client 行（mcp-client-webctl）注册，
+ * 本插件不重复实现工具，只负责诊断与展示。
  */
 import { json, queryParam, withErrors } from './src/host/http.mjs'
-import { probeWebctl } from './src/host/webctl.mjs'
+import { StatusService } from './src/host/status.mjs'
 
 /** 路由前缀。 */
 const BASE = '/api/dsh-webctl'
 
+/** 预热延迟：等宿主把 connection 等服务挂好。 */
+const WARMUP_DELAY_MS = 2500
+
 /**
- * 把行配置归一化；缺省值与类型错误都兜住。
+ * 把行配置归一化；缺省值与类型错误都兜住，配置错误不应让插件挂掉。
  * @param {unknown} raw - 行配置。
  * @returns {object} 归一化配置。
  */
@@ -18,7 +25,9 @@ export function normalizeConfig(raw) {
   const config = raw !== null && typeof raw === 'object' ? raw : {}
   const playwright = config.playwright !== null && typeof config.playwright === 'object' ? config.playwright : {}
   const command = typeof config.command === 'string' && config.command.trim() !== '' ? config.command.trim() : 'webctl'
-  const args = Array.isArray(config.args) && config.args.every((item) => typeof item === 'string') ? config.args.slice() : ['mcp']
+  const args = Array.isArray(config.args) && config.args.every((item) => typeof item === 'string')
+    ? config.args.slice()
+    : ['mcp']
   const timeoutMs = Number.isFinite(config.timeoutMs) && config.timeoutMs > 0 ? config.timeoutMs : 8000
   const cacheTtlMs = Number.isFinite(config.cacheTtlMs) && config.cacheTtlMs >= 0 ? config.cacheTtlMs : 5000
   const searchDirs = Array.isArray(playwright.searchDirs)
@@ -42,29 +51,52 @@ export function normalizeConfig(raw) {
  */
 export function apply(ctx, config) {
   const resolved = normalizeConfig(config)
+  const status = new StatusService(resolved, { getTools: () => ctx.get('tools') })
   try {
-    ctx.logger?.info?.('[dsh-webctl] 已加载：webctl 命令 ' + resolved.command)
+    ctx.logger?.info?.(`[dsh-webctl] 已加载：webctl 命令 ${resolved.command}，serverName=${resolved.serverName}`)
   } catch {
     // 日志不可用不影响功能。
   }
+
+  const warmup = setTimeout(() => {
+    status.get({ refresh: true }).catch((error) => {
+      try {
+        ctx.logger?.warn?.(`[dsh-webctl] 预热状态失败：${error instanceof Error ? error.message : String(error)}`)
+      } catch {
+        // 忽略日志失败。
+      }
+    })
+  }, WARMUP_DELAY_MS)
+  warmup.unref?.()
+  ctx.effect(() => () => clearTimeout(warmup), 'dsh-webctl: 预热定时器')
+
   ctx.inject(['connection'], (scoped) => {
     scoped.effect(() => scoped.connection.fetch.register({
-      path: BASE + '/status',
+      path: `${BASE}/status`,
       methods: ['GET'],
       requestBody: 'buffered',
       fetch: withErrors(async (request) => {
         const refresh = queryParam(request, 'refresh') === '1'
-        const webctl = await probeWebctl({ command: resolved.command, timeoutMs: resolved.timeoutMs })
-        return json(200, {
-          ok: true,
-          checkedAt: new Date().toISOString(),
-          refresh,
-          webctl,
-          diagnostics: webctl.state === 'ready'
-            ? [{ level: 'ok', code: 'WEBCTL_READY', message: 'webctl ' + webctl.version + ' 可用：' + webctl.resolvedPath }]
-            : [{ level: 'error', code: webctl.error?.code ?? 'WEBCTL_ERROR', message: webctl.error?.message ?? 'webctl 探测失败', hint: webctl.error?.hint }],
-        })
+        const snapshot = await status.get({ refresh })
+        return json(200, snapshot)
       }),
     }), 'dsh-webctl: status 路由')
+
+    scoped.effect(() => scoped.connection.fetch.register({
+      path: `${BASE}/config`,
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: withErrors(async () => json(200, {
+        ok: true,
+        config: {
+          command: resolved.command,
+          args: resolved.args,
+          timeoutMs: resolved.timeoutMs,
+          cacheTtlMs: resolved.cacheTtlMs,
+          serverName: resolved.serverName,
+          playwright: resolved.playwright,
+        },
+      })),
+    }), 'dsh-webctl: config 路由')
   })
 }
