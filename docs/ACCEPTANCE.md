@@ -43,6 +43,18 @@
 4. **会话/凭据**：`cookies` 导出需显式确认；输出里不出现 cookie 值。
 5. **降级记录**：真实触发一次 JS 页降级后，设置页“最近降级与回退”出现记录且不含页面正文。
 
+
+## 5. 联网点测记录（web_search）
+
+脚本：`node scripts/search-check.mjs --webctl /path/to/webctl --engines bing,baidu,360 --pause 6000`
+
+- 只输出 `code` / `ok` / 结果条数 / 引擎状态 / `data` 字段名与 `actionable`；**不打印、不落盘任何结果内容**（对齐 webctl ADR-0008）。
+- 实测（2026-11-10，webctl 0.2.2，单查询词、每引擎 1 次、间隔 6s）：
+  - `bing`：`OK`，1 条结果，`dataKeys=engines,notes,query,results`；
+  - `baidu`：`DEGRADED`，`degraded_from=search-blocked`，`reason=search-unavailable`，`next_steps=[fetch]`；
+  - `360`：`DEGRADED`，同上。
+- 结论：本网络下仅 Bing 可用；Baidu/360 被拦时 webctl 如实降级而非“成功但 0 条”，插件侧可解析该 `actionable`。
+- **未验证**：0.2.3 的 `filtered_ads` / `applied_operators` / `same_domain_count` / `snippet_truncated` 字段（需 `v0.2.3` 资产）；结果相关性未评估。
 ## 4. 回归节奏
 
 - 每次改探测/信封/状态代码：跑离线单测。

@@ -22,6 +22,7 @@
 - **故障矩阵脚本**：`scripts/e2e-faults.mjs` 在隔离实例里制造“webctl 不存在”与“禁用工具行”两种故障，断言状态接口仍返回可读诊断（`WEBCTL_MISSING` / `MCP_NOT_REGISTERED`）且注册工具数为 0。
 - **架构图表**：`docs/ARCHITECTURE.md` 用 Mermaid 描述组件数据流、启动时序、状态采集、工具调用与降级回退决策树、验证分层。
 - **发布流程文档**：`docs/RELEASE.md` 给出自动化命令、人工检查单、tag/Release 步骤与回滚方式。
+- **低频联网搜索自检**：`scripts/search-check.mjs` 按引擎逐个请求 `web_search`，只输出 code/条数/字段名/actionable，不落结果内容；实测 bing OK、baidu/360 被拦时 `DEGRADED search-blocked`（记录在 `docs/ACCEPTANCE.md` §5）。
 - **A 批真实工具覆盖**：本地 fixture 站点扩展分页/表单/下载/robots/慢响应/大响应端点；真实调用 `paginate`（3 页）、`fill_form`（POST 200）、`download`（`UNSUPPORTED` + actionable）、`robots`（规则 + Sitemap）、`fetch` 的 `TIMEOUT`/`LIMIT`，以及 `cookies` 的未确认 `BLOCKED`、确认后 `values` 脱敏与文件 0600。
 - **真实会话工具测试**：临时 `WEBCTL_STATE_DIR` 下真实调用 `session list/save/load/clear`，断言会话文件落在状态目录内、权限 0600，且干净 OK 结果不会进入降级记录。
 - **无残留子进程守卫**：真实二进制契约测试新增“连续 5 次 MCP 探测后不新增存活 `webctl mcp` 进程”检查（POSIX）。
