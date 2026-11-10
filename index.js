@@ -34,12 +34,14 @@ export function normalizeConfig(raw) {
   const searchDirs = Array.isArray(playwright.searchDirs)
     ? playwright.searchDirs.filter((item) => typeof item === 'string' && item.trim() !== '')
     : []
+  const fallbackTool = typeof config.fallbackTool === 'string' ? config.fallbackTool.trim() : ''
   return {
     command,
     args,
     timeoutMs,
     cacheTtlMs,
     serverName: typeof config.serverName === 'string' && config.serverName !== '' ? config.serverName : 'webctl',
+    fallbackTool,
     playwright: { searchDirs, launchSmoke: playwright.launchSmoke === true },
   }
 }
@@ -104,6 +106,7 @@ export function apply(ctx, config) {
           timeoutMs: resolved.timeoutMs,
           cacheTtlMs: resolved.cacheTtlMs,
           serverName: resolved.serverName,
+          fallbackTool: resolved.fallbackTool,
           playwright: resolved.playwright,
         },
       })),

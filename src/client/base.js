@@ -49,6 +49,7 @@ const ZH = {
   'webctl.version': '版本',
   'webctl.tools': 'caps 工具数',
   'webctl.fallback': '回退能力',
+  'webctl.fallbackPreview': '回退声明',
   'webctl.pathMissing': '未解析到可执行文件',
   'webctl.toolCount': '{n} 个',
   'mcp.title': 'MCP 握手',
@@ -140,6 +141,7 @@ const EN = {
   'webctl.version': 'Version',
   'webctl.tools': 'caps tool count',
   'webctl.fallback': 'Fallback capability',
+  'webctl.fallbackPreview': 'Fallback declaration',
   'webctl.pathMissing': 'Executable not resolved',
   'webctl.toolCount': '{n}',
   'mcp.title': 'MCP handshake',
@@ -471,6 +473,15 @@ function normalizeStatus(raw) {
   const browsers = asRecord(playwright.browsers)
   const fallback = asRecord(playwright.fallback)
   const smoke = asRecord(playwright.launchSmoke)
+  const fallbackPreview = isRecord(webctl.fallbackPreview)
+    ? {
+      configured: webctl.fallbackPreview.configured === true,
+      valid: webctl.fallbackPreview.valid === true ? true : webctl.fallbackPreview.valid === false ? false : null,
+      name: nullableString(webctl.fallbackPreview.name),
+      tool: nullableString(webctl.fallbackPreview.tool),
+      active: webctl.fallbackPreview.active === true,
+    }
+    : null
   const webctlTools = asArray(webctl.tools).filter(item => typeof item === 'string')
   const mcpTools = asArray(mcp.tools).filter(item => typeof item === 'string')
   const registeredTools = Array.isArray(mcp.registeredTools)
@@ -511,6 +522,7 @@ function normalizeStatus(raw) {
       tools: webctlTools,
       toolCount: asNumber(webctl.toolCount) ?? webctlTools.length,
       fallbackCapability: isRecord(webctl.fallbackCapability) ? webctl.fallbackCapability : null,
+      fallbackPreview,
       error: normalizeError(webctl.error),
     },
     mcp: {

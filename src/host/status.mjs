@@ -11,6 +11,22 @@ import { probeWebctl } from './webctl.mjs'
 const DEFAULT_CACHE_TTL_MS = 5000
 
 /**
+ * 解析 WEBCTL_FALLBACK_TOOL=<名字>:<工具名> 形式的配置。
+ * @param {unknown} raw - 配置值。
+ * @returns {{raw: string, name: string, tool: string, valid: boolean}|null} 解析结果；空配置返回 null。
+ */
+export function parseFallbackTool(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') return null
+  const value = raw.trim()
+  const index = value.indexOf(':')
+  if (index <= 0 || index === value.length - 1) return { raw: value, name: '', tool: '', valid: false }
+  const name = value.slice(0, index).trim()
+  const tool = value.slice(index + 1).trim()
+  const valid = name !== '' && tool !== '' && /^[A-Za-z0-9_.-]+$/.test(name) && /^[A-Za-z0-9_.-]+$/.test(tool)
+  return { raw: value, name, tool, valid }
+}
+
+/**
  * 状态服务。
  */
 export class StatusService {
@@ -62,8 +78,13 @@ export class StatusService {
    */
   async compute() {
     const startedAt = Date.now()
-    const { command, args, timeoutMs, playwright } = this.config
-    const webctl = await probeWebctl({ command, timeoutMs, env: process.env })
+    const { command, args, timeoutMs, playwright, fallbackTool } = this.config
+    const declared = parseFallbackTool(fallbackTool)
+    // 只有格式合法时才把声明注入探测环境：用来预览 webctl 会怎么报告回退能力。
+    const probeEnv = declared !== null && declared.valid
+      ? { ...process.env, WEBCTL_FALLBACK_TOOL: declared.raw }
+      : process.env
+    const webctl = await probeWebctl({ command, timeoutMs, env: probeEnv })
     let mcp = { state: 'skipped', serverInfo: null, protocolVersion: null, tools: [], error: null }
     if (webctl.state === 'ready' && webctl.resolvedPath !== null) {
       mcp = await probeMcpServer({ command: webctl.resolvedPath, args, timeoutMs, env: process.env })
@@ -127,6 +148,8 @@ export class StatusService {
  */
 export function composeStatus(input) {
   const { webctl, mcp, playwright, registeredTools, degradations, config, durationMs } = input
+  const declaredFallback = parseFallbackTool(config.fallbackTool)
+  const reportedFallback = webctl.caps?.fallbackCapability ?? null
   const capsTools = webctl.caps?.tools?.map((tool) => tool.name) ?? []
   const mcpTools = Array.isArray(mcp.tools) ? mcp.tools : []
   const diagnostics = []
@@ -180,6 +203,39 @@ export function composeStatus(input) {
     }
   }
 
+  if (declaredFallback !== null && !declaredFallback.valid) {
+    diagnostics.push({
+      level: 'warn',
+      code: 'FALLBACK_TOOL_INVALID',
+      message: 'fallbackTool 格式无效：' + declaredFallback.raw,
+      hint: '应为 <名字>:<工具名>，例如 playwright:playwright_browser_snapshot（两侧只允许字母、数字、下划线、点、连字符）。',
+    })
+  } else if (declaredFallback !== null && webctl.state === 'ready') {
+    if (reportedFallback === null) {
+      diagnostics.push({
+        level: 'warn',
+        code: 'FALLBACK_TOOL_NOT_REPORTED',
+        message: '已配置 fallbackTool，但 webctl caps 未报告 fallback_capability。',
+        hint: '确认 webctl >= 0.2.3；若版本过旧，声明不会生效，也不会影响其他能力。',
+      })
+    } else {
+      diagnostics.push({
+        level: 'ok',
+        code: 'FALLBACK_TOOL_ACTIVE',
+        message: 'webctl 已识别回退声明：' + (reportedFallback.name ?? '') + ' → ' + (reportedFallback.tool ?? ''),
+      })
+    }
+  }
+
+  const fallbackPreview = {
+    configured: declaredFallback !== null,
+    valid: declaredFallback === null ? null : declaredFallback.valid,
+    name: declaredFallback?.name ?? null,
+    tool: declaredFallback?.tool ?? null,
+    reported: reportedFallback,
+    active: declaredFallback !== null && declaredFallback.valid && reportedFallback !== null,
+  }
+
   const recent = Array.isArray(degradations) ? degradations.slice(0, 10) : []
   const fallbackRecords = recent.filter((record) => record !== null && typeof record === 'object' && record.fallbackHint !== null && record.fallbackHint.playwrightSuitable === true)
   const fallbackReadiness = {
@@ -224,7 +280,8 @@ export function composeStatus(input) {
       version: webctl.version,
       tools: capsTools,
       toolCount: capsTools.length,
-      fallbackCapability: webctl.caps?.fallbackCapability ?? null,
+      fallbackCapability: reportedFallback,
+      fallbackPreview,
       error: webctl.error,
     },
     webctlMcp: {
