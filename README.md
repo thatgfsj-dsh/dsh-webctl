@@ -144,6 +144,10 @@ node --test tests/*.test.mjs       # 离线单测（假 webctl / 假 MCP 服务�
 node scripts/build-client.mjs      # 重新生成 client.js
 node scripts/build-client.mjs --check
 node --check client.js             # 客户端语法
+
+# 契约守卫（需要真实 webctl 二进制；不设则自动跳过）
+WEBCTL_BIN=/path/to/webctl node --test tests/contract.test.mjs
+# 断言：caps 与 tools/list 工具面一致、版本一致、两个 MCP 探测可并发成功
 ```
 
 真机冒烟（**不碰真实 `~/.dsh`**：临时 DSH_HOME + web 测试 profile + 随机端口，跑完删除）：
