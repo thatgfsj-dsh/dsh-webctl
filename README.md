@@ -198,6 +198,10 @@ node scripts/e2e-smoke.mjs --webctl /path/to/webctl
 | webctl | `0.2.2`（18 工具）起 | 0.1.x 只有 15 个工具，状态页会显示实际数量 |
 | Playwright | 任意 | 仅诊断，不参与 webctl 运行 |
 
+## 发布
+
+版本、检查单、tag 与回滚流程见 [docs/RELEASE.md](docs/RELEASE.md)。
+
 ## 验收
 
 自动化覆盖与需要人工验证的检查单见 [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)。
