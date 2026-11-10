@@ -4,14 +4,22 @@
   "type": "module",
   "description": "DeepSeek Harness 插件：通过 MCP 暴露 webctl 全部工具，并在设置页诊断 webctl 与 Playwright 状态。",
   "license": "MIT",
+  "icon": "./icon.svg",
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
     "index.js",
+    "client.js",
     "src/**/*.mjs",
+    "src/**/*.js",
     "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
@@ -23,10 +31,19 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
     }
   },
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "check:client": "node scripts/build-client.mjs --check"
   },
   "repository": {
     "type": "git",
