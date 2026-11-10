@@ -135,6 +135,20 @@ webctl 0.2.3 起支持 `WEBCTL_FALLBACK_TOOL=<名字>:<工具名>`：声明后�
 }
 ```
 
+## 常见诊断码
+
+| code | 含义与处理 |
+| --- | --- |
+| `WEBCTL_MISSING` | 找不到 webctl 可执行文件；安装它，或在两行补丁里写绝对路径 |
+| `WEBCTL_VERSION_FAILED` / `WEBCTL_CAPS_FAILED` | 二进制存在但 `--version` / `caps --json` 失败；手工跑一次确认 |
+| `MCP_READY` / `MCP_REGISTERED` | 握手成功 / 宿主已注册的 `mcp__webctl__*` 工具数 |
+| `MCP_NOT_REGISTERED` | 工具行没连上；看 DSH 日志里的 `mcp-client(webctl)` |
+| `MCP_TOOL_DRIFT` | `caps` 与 `tools/list` 工具集合不同（版本不一致或上游变更） |
+| `MCP_REGISTRATION_MISMATCH` | 探测用的 webctl 与工具行启动的可能不是同一个二进制；把两行 `command` 对齐 |
+| `FALLBACK_TOOL_ACTIVE` / `_NOT_REPORTED` / `_INVALID` | 回退声明被识别 / 未被报告（版本过旧）/ 格式错误 |
+| `PLAYWRIGHT_MISSING` | 可选回退通道未安装；不影响 webctl |
+| `PLAYWRIGHT_FALLBACK_UNAVAILABLE` | 最近降级建议 Playwright，但本机未就绪；先试 `embedded_data` |
+
 ## Playwright 的边界
 
 - 默认**只读**：读 `node_modules/playwright*/package.json` 与浏览器缓存目录，**不执行任何用户代码、不下载浏览器、不启动浏览器、不访问站点**。

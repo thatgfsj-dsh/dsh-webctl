@@ -131,9 +131,10 @@ export class StatusService {
       const tools = this.getTools()
       if (tools === undefined || tools === null || typeof tools.definitions !== 'function') return null
       const definitions = tools.definitions()
+      const prefix = 'mcp__' + this.config.serverName + '__'
       const names = definitions
         .map((definition) => (definition !== null && typeof definition === 'object' ? definition.name : undefined))
-        .filter((name) => typeof name === 'string' && name.startsWith('mcp__'))
+        .filter((name) => typeof name === 'string' && name.startsWith(prefix))
       return names
     } catch {
       return null
@@ -197,9 +198,27 @@ export function composeStatus(input) {
 
   if (Array.isArray(registeredTools)) {
     if (registeredTools.length === 0) {
-      diagnostics.push({ level: 'warn', code: 'MCP_NOT_REGISTERED', message: '宿主里还没有任何 mcp__ 工具注册；mcp-client 行可能没连上。' })
+      diagnostics.push({ level: 'warn', code: 'MCP_NOT_REGISTERED', message: '宿主里还没有 mcp__' + config.serverName + '__* 工具注册；mcp-client 行可能没连上。' })
     } else {
-      diagnostics.push({ level: 'ok', code: 'MCP_REGISTERED', message: '宿主已注册 ' + registeredTools.length + ' 个 mcp__ 工具。' })
+      diagnostics.push({ level: 'ok', code: 'MCP_REGISTERED', message: '宿主已注册 ' + registeredTools.length + ' 个 mcp__' + config.serverName + '__* 工具。' })
+      // 探测用的 webctl 与工具行实际启动的 webctl 可能不是同一个二进制：工具集合不同就会暴露出来。
+      const prefix = 'mcp__' + config.serverName + '__'
+      const registeredRaw = registeredTools
+        .filter((name) => name.startsWith(prefix))
+        .map((name) => name.slice(prefix.length))
+      if (mcp.state === 'ready' && mcpTools.length > 0 && registeredRaw.length > 0) {
+        const missing = mcpTools.filter((name) => !registeredRaw.includes(name))
+        const extra = registeredRaw.filter((name) => !mcpTools.includes(name))
+        if (missing.length > 0 || extra.length > 0) {
+          diagnostics.push({
+            level: 'warn',
+            code: 'MCP_REGISTRATION_MISMATCH',
+            message: '探测到的 webctl 与工具行注册的工具集合不一致（可能两行 command 指向不同二进制）。',
+            hint: '把 dsh-webctl 与 mcp-client-webctl 的 command 设为同一个路径（或都不设、统一走 PATH）。缺失：'
+              + (missing.join(', ') || '无') + '；多出：' + (extra.join(', ') || '无'),
+          })
+        }
+      }
     }
   }
 
