@@ -96,6 +96,11 @@ dsh --profile web --dump-config | grep -A8 "id: mcp-client-webctl"
 
 webctl 0.2.3 起支持 `WEBCTL_FALLBACK_TOOL=<名字>:<工具名>`：声明后，只有 `fallback_hint.playwright_suitable=true` 的降级信封才会在 `next_steps` 里指向该工具。webctl **只给建议，绝不主动调用**。
 
+两件事要分清：
+
+1. **预览与校验**：在 `dsh-webctl` 行设置 `fallbackTool`，插件会用它去跑一次 `webctl caps --json`，在状态页显示是否被 webctl 识别（`FALLBACK_TOOL_ACTIVE` / `FALLBACK_TOOL_NOT_REPORTED` / `FALLBACK_TOOL_INVALID`）。
+2. **真正生效**：必须写进 `mcp-client-webctl` 行的 `env`（或宿主进程环境），因为工具调用跑在那个子进程里。
+
 ```yaml
 - id: mcp-client-webctl
   config:
@@ -107,6 +112,12 @@ webctl 0.2.3 起支持 `WEBCTL_FALLBACK_TOOL=<名字>:<工具名>`：声明后�
     failOnStartupError: false
     env:
       WEBCTL_FALLBACK_TOOL: playwright:playwright_browser_snapshot
+
+# 3) 诊断行（可选）：让状态页校验声明是否被 webctl 识别
+- id: dsh-webctl
+  config:
+    command: /home/me/.local/bin/webctl
+    fallbackTool: playwright:playwright_browser_snapshot
 ```
 
 ## 状态接口

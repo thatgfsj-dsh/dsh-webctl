@@ -197,6 +197,14 @@ function WebctlPanel({ status, t }) {
     { label: t('webctl.version'), value: webctl.version === null ? t('common.unknown') : webctl.version, mono: true },
     { label: t('webctl.tools'), value: t('webctl.toolCount', { n: webctl.toolCount }) },
     { label: t('webctl.fallback'), value: webctl.fallbackCapability === null ? t('common.no') : t('common.yes') },
+    webctl.fallbackPreview === null || !webctl.fallbackPreview.configured
+      ? null
+      : {
+        label: t('webctl.fallbackPreview'),
+        value: (webctl.fallbackPreview.name ?? '') + ':' + (webctl.fallbackPreview.tool ?? '')
+          + (webctl.fallbackPreview.active ? '（' + t('common.yes') + '）' : '（' + t('common.no') + '）'),
+        mono: true,
+      },
   ]
   const mcpRows = [
     { label: t('mcp.server'), value: serverInfoLabel(mcp.serverInfo, t), mono: true },

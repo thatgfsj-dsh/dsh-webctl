@@ -21,15 +21,15 @@ const ZH = { 'settings.title': 'webctl 状态', 'settings.description': '检查 
 'settings.duration': '耗时 {ms} ms', 'settings.httpFailed': 'HTTP {status}', 'settings.badResponse': '响应格式不正确', 'state.ready': '就绪', 'state.missing': '未安装', 'state.error': '异常', 'state.skipped': '已跳过',
 'state.notChecked': '未检查', 'state.partial': '部分可用', 'state.unknown': '未知', 'common.unknown': '未知', 'common.yes': '是', 'common.no': '否', 'common.errorCode': '错误码', 'common.errorMessage': '错误信息', 'common.hint': '提示',
 'common.status': '状态', 'common.result': '结果', 'common.listSeparator': '、', 'webctl.title': 'webctl', 'webctl.command': '命令', 'webctl.path': '解析路径', 'webctl.version': '版本', 'webctl.tools': 'caps 工具数',
-'webctl.fallback': '回退能力', 'webctl.pathMissing': '未解析到可执行文件', 'webctl.toolCount': '{n} 个', 'mcp.title': 'MCP 握手', 'mcp.state': '握手状态', 'mcp.server': '服务信息', 'mcp.protocol': '协议版本', 'mcp.tools': 'tools/list 工具数',
-'mcp.registered': 'DSH 已注册', 'playwright.title': 'Playwright（回退通道）', 'playwright.package': '包状态', 'playwright.packageFound': '已找到', 'playwright.packageMissing': '未找到', 'playwright.name': '包名', 'playwright.version': '版本',
-'playwright.path': '路径', 'playwright.searchedDirs': '搜索目录', 'playwright.browsers': '浏览器缓存', 'playwright.browsersPath': '缓存路径', 'playwright.browsersExists': '目录存在', 'playwright.browsersEmpty': '未检测到已安装浏览器',
-'playwright.fallback': 'WEBCTL_FALLBACK_TOOL', 'playwright.fallbackDeclared': '已声明（{tool}）', 'playwright.fallbackDeclaredNoTool': '已声明', 'playwright.fallbackMissing': '未声明', 'playwright.launchSmoke': '启动冒烟',
-'playwright.smoke.disabled': '未启用', 'playwright.smoke.untested': '未测试', 'playwright.smoke.passed': '通过', 'playwright.smoke.failed': '失败', 'diagnostics.title': '诊断', 'diagnostics.count': '{n} 条',
-'diagnostics.empty': '暂无诊断信息', 'tools.summary': '工具清单（webctl {webctl} / MCP {mcp}）', 'tools.webctl': 'webctl caps', 'tools.mcp': 'MCP tools/list', 'tools.empty': '没有工具', 'tools.missingInMcp': '（MCP 未返回）',
-'tools.registered': 'DSH 已注册工具', 'tools.registeredEmpty': '宿主尚未注册 mcp__ 工具', 'tools.summaryRegistered': '工具清单（webctl {webctl} / MCP {mcp} / 已注册 {registered}）', 'level.ok': '正常', 'degradation.title': '最近降级与回退',
-'degradation.empty': '还没有观察到 webctl 降级（只记录带 actionable / fallback_hint 的结果）', 'degradation.count': '{n} 条', 'degradation.nextSteps': '建议下一步', 'degradation.playwrightSuitable': '适合 Playwright 回退',
-'degradation.notSuitable': '不适合 Playwright 回退', 'degradation.signals': '信号', 'degradation.tool': '工具', 'level.warn': '警告', 'level.error': '错误', }
+'webctl.fallback': '回退能力', 'webctl.fallbackPreview': '回退声明', 'webctl.pathMissing': '未解析到可执行文件', 'webctl.toolCount': '{n} 个', 'mcp.title': 'MCP 握手', 'mcp.state': '握手状态', 'mcp.server': '服务信息', 'mcp.protocol': '协议版本',
+'mcp.tools': 'tools/list 工具数', 'mcp.registered': 'DSH 已注册', 'playwright.title': 'Playwright（回退通道）', 'playwright.package': '包状态', 'playwright.packageFound': '已找到', 'playwright.packageMissing': '未找到',
+'playwright.name': '包名', 'playwright.version': '版本', 'playwright.path': '路径', 'playwright.searchedDirs': '搜索目录', 'playwright.browsers': '浏览器缓存', 'playwright.browsersPath': '缓存路径', 'playwright.browsersExists': '目录存在',
+'playwright.browsersEmpty': '未检测到已安装浏览器', 'playwright.fallback': 'WEBCTL_FALLBACK_TOOL', 'playwright.fallbackDeclared': '已声明（{tool}）', 'playwright.fallbackDeclaredNoTool': '已声明', 'playwright.fallbackMissing': '未声明',
+'playwright.launchSmoke': '启动冒烟', 'playwright.smoke.disabled': '未启用', 'playwright.smoke.untested': '未测试', 'playwright.smoke.passed': '通过', 'playwright.smoke.failed': '失败', 'diagnostics.title': '诊断',
+'diagnostics.count': '{n} 条', 'diagnostics.empty': '暂无诊断信息', 'tools.summary': '工具清单（webctl {webctl} / MCP {mcp}）', 'tools.webctl': 'webctl caps', 'tools.mcp': 'MCP tools/list', 'tools.empty': '没有工具',
+'tools.missingInMcp': '（MCP 未返回）', 'tools.registered': 'DSH 已注册工具', 'tools.registeredEmpty': '宿主尚未注册 mcp__ 工具', 'tools.summaryRegistered': '工具清单（webctl {webctl} / MCP {mcp} / 已注册 {registered}）', 'level.ok': '正常',
+'degradation.title': '最近降级与回退', 'degradation.empty': '还没有观察到 webctl 降级（只记录带 actionable / fallback_hint 的结果）', 'degradation.count': '{n} 条', 'degradation.nextSteps': '建议下一步',
+'degradation.playwrightSuitable': '适合 Playwright 回退', 'degradation.notSuitable': '不适合 Playwright 回退', 'degradation.signals': '信号', 'degradation.tool': '工具', 'level.warn': '警告', 'level.error': '错误', }
 /** 英文词典。 */
 const EN = { 'settings.title': 'webctl status', 'settings.description': 'Checks whether webctl, its 18 MCP tools and the Playwright fallback are ready.', 'settings.refresh': 'Refresh',
 'settings.refreshing': 'Refreshing…', 'settings.loading': 'Probing the environment…', 'settings.loadFailed': 'Failed to load status: {detail}', 'settings.retry': 'Retry', 'settings.lastChecked': 'Last checked: {time}',
@@ -37,18 +37,18 @@ const EN = { 'settings.title': 'webctl status', 'settings.description': 'Checks 
 'settings.badResponse': 'Unexpected response format', 'state.ready': 'Ready', 'state.missing': 'Missing', 'state.error': 'Error', 'state.skipped': 'Skipped', 'state.notChecked': 'Not checked', 'state.partial': 'Partial',
 'state.unknown': 'Unknown', 'common.unknown': 'Unknown', 'common.yes': 'Yes', 'common.no': 'No', 'common.errorCode': 'Error code', 'common.errorMessage': 'Message', 'common.hint': 'Hint', 'common.status': 'Status',
 'common.result': 'Result', 'common.listSeparator': ', ', 'webctl.title': 'webctl', 'webctl.command': 'Command', 'webctl.path': 'Resolved path', 'webctl.version': 'Version', 'webctl.tools': 'caps tool count',
-'webctl.fallback': 'Fallback capability', 'webctl.pathMissing': 'Executable not resolved', 'webctl.toolCount': '{n}', 'mcp.title': 'MCP handshake', 'mcp.state': 'Handshake state', 'mcp.server': 'Server info',
-'mcp.protocol': 'Protocol version', 'mcp.tools': 'tools/list tool count', 'mcp.registered': 'Registered in DSH', 'playwright.title': 'Playwright (fallback)', 'playwright.package': 'Package',
-'playwright.packageFound': 'Found', 'playwright.packageMissing': 'Not found', 'playwright.name': 'Name', 'playwright.version': 'Version', 'playwright.path': 'Path', 'playwright.searchedDirs': 'Searched dirs',
-'playwright.browsers': 'Browser cache', 'playwright.browsersPath': 'Cache path', 'playwright.browsersExists': 'Directory exists', 'playwright.browsersEmpty': 'No installed browser detected',
-'playwright.fallback': 'WEBCTL_FALLBACK_TOOL', 'playwright.fallbackDeclared': 'Declared ({tool})', 'playwright.fallbackDeclaredNoTool': 'Declared', 'playwright.fallbackMissing': 'Not declared',
-'playwright.launchSmoke': 'Launch smoke', 'playwright.smoke.disabled': 'Disabled', 'playwright.smoke.untested': 'Not tested', 'playwright.smoke.passed': 'Passed', 'playwright.smoke.failed': 'Failed',
-'diagnostics.title': 'Diagnostics', 'diagnostics.count': '{n}', 'diagnostics.empty': 'No diagnostics', 'tools.summary': 'Tools (webctl {webctl} / MCP {mcp})', 'tools.webctl': 'webctl caps', 'tools.mcp': 'MCP tools/list',
-'tools.empty': 'No tools', 'tools.missingInMcp': '(missing from MCP)', 'tools.registered': 'Registered in DSH', 'tools.registeredEmpty': 'No mcp__ tools registered yet',
-'tools.summaryRegistered': 'Tools (webctl {webctl} / MCP {mcp} / registered {registered})', 'level.ok': 'OK', 'degradation.title': 'Recent degradations and fallback',
-'degradation.empty': 'No webctl degradation observed yet (only results with actionable / fallback_hint are recorded)', 'degradation.count': '{n} record(s)', 'degradation.nextSteps': 'Next steps',
-'degradation.playwrightSuitable': 'Playwright fallback suitable', 'degradation.notSuitable': 'Playwright fallback not suitable', 'degradation.signals': 'Signals', 'degradation.tool': 'Tool', 'level.warn': 'Warning',
-'level.error': 'Error', }
+'webctl.fallback': 'Fallback capability', 'webctl.fallbackPreview': 'Fallback declaration', 'webctl.pathMissing': 'Executable not resolved', 'webctl.toolCount': '{n}', 'mcp.title': 'MCP handshake',
+'mcp.state': 'Handshake state', 'mcp.server': 'Server info', 'mcp.protocol': 'Protocol version', 'mcp.tools': 'tools/list tool count', 'mcp.registered': 'Registered in DSH', 'playwright.title': 'Playwright (fallback)',
+'playwright.package': 'Package', 'playwright.packageFound': 'Found', 'playwright.packageMissing': 'Not found', 'playwright.name': 'Name', 'playwright.version': 'Version', 'playwright.path': 'Path',
+'playwright.searchedDirs': 'Searched dirs', 'playwright.browsers': 'Browser cache', 'playwright.browsersPath': 'Cache path', 'playwright.browsersExists': 'Directory exists',
+'playwright.browsersEmpty': 'No installed browser detected', 'playwright.fallback': 'WEBCTL_FALLBACK_TOOL', 'playwright.fallbackDeclared': 'Declared ({tool})', 'playwright.fallbackDeclaredNoTool': 'Declared',
+'playwright.fallbackMissing': 'Not declared', 'playwright.launchSmoke': 'Launch smoke', 'playwright.smoke.disabled': 'Disabled', 'playwright.smoke.untested': 'Not tested', 'playwright.smoke.passed': 'Passed',
+'playwright.smoke.failed': 'Failed', 'diagnostics.title': 'Diagnostics', 'diagnostics.count': '{n}', 'diagnostics.empty': 'No diagnostics', 'tools.summary': 'Tools (webctl {webctl} / MCP {mcp})',
+'tools.webctl': 'webctl caps', 'tools.mcp': 'MCP tools/list', 'tools.empty': 'No tools', 'tools.missingInMcp': '(missing from MCP)', 'tools.registered': 'Registered in DSH',
+'tools.registeredEmpty': 'No mcp__ tools registered yet', 'tools.summaryRegistered': 'Tools (webctl {webctl} / MCP {mcp} / registered {registered})', 'level.ok': 'OK',
+'degradation.title': 'Recent degradations and fallback', 'degradation.empty': 'No webctl degradation observed yet (only results with actionable / fallback_hint are recorded)', 'degradation.count': '{n} record(s)',
+'degradation.nextSteps': 'Next steps', 'degradation.playwrightSuitable': 'Playwright fallback suitable', 'degradation.notSuitable': 'Playwright fallback not suitable', 'degradation.signals': 'Signals',
+'degradation.tool': 'Tool', 'level.warn': 'Warning', 'level.error': 'Error', }
 /** 状态对应的文案键。 */
 const STATE_KEYS = { ready: 'state.ready', missing: 'state.missing', error: 'state.error', skipped: 'state.skipped', 'not-checked': 'state.notChecked', partial: 'state.partial', unknown: 'state.unknown', }
 /** 状态对应的徽标色调。 */
@@ -214,6 +214,10 @@ const pkg = asRecord(playwright.package)
 const browsers = asRecord(playwright.browsers)
 const fallback = asRecord(playwright.fallback)
 const smoke = asRecord(playwright.launchSmoke)
+const fallbackPreview = isRecord(webctl.fallbackPreview)
+? { configured: webctl.fallbackPreview.configured === true, valid: webctl.fallbackPreview.valid === true ? true : webctl.fallbackPreview.valid === false ? false : null, name: nullableString(webctl.fallbackPreview.name),
+tool: nullableString(webctl.fallbackPreview.tool), active: webctl.fallbackPreview.active === true, }
+: null
 const webctlTools = asArray(webctl.tools).filter(item => typeof item === 'string')
 const mcpTools = asArray(mcp.tools).filter(item => typeof item === 'string')
 const registeredTools = Array.isArray(mcp.registeredTools)
@@ -229,7 +233,7 @@ jsEngineSuitable: hint.jsEngineSuitable === true, }, }
 })
 return { ok: source.ok === true, checkedAt: asString(source.checkedAt), cached: source.cached === true, durationMs: asNumber(source.durationMs), webctl: {
 state: normalizeState(webctl.state, ['ready', 'missing', 'error']), command: asString(webctl.command), resolvedPath: nullableString(webctl.resolvedPath), version: nullableString(webctl.version), tools: webctlTools,
-toolCount: asNumber(webctl.toolCount) ?? webctlTools.length, fallbackCapability: isRecord(webctl.fallbackCapability) ? webctl.fallbackCapability : null, error: normalizeError(webctl.error), }, mcp: {
+toolCount: asNumber(webctl.toolCount) ?? webctlTools.length, fallbackCapability: isRecord(webctl.fallbackCapability) ? webctl.fallbackCapability : null, fallbackPreview, error: normalizeError(webctl.error), }, mcp: {
 serverName: asString(mcp.serverName), state: normalizeState(mcp.state, ['ready', 'error', 'skipped']), serverInfo: isRecord(mcp.serverInfo) ? mcp.serverInfo : null, protocolVersion: nullableString(mcp.protocolVersion),
 tools: mcpTools, toolCount: asNumber(mcp.toolCount) ?? mcpTools.length, registeredTools, registeredToolCount: asNumber(mcp.registeredToolCount) ?? (registeredTools === null ? null : registeredTools.length),
 error: normalizeError(mcp.error), }, playwright: { state: normalizeState(playwright.state, ['not-checked', 'missing', 'partial', 'ready', 'error']), package: { found: pkg.found === true, name: nullableString(pkg.name),
@@ -417,7 +421,10 @@ const mcp = status.mcp
 const rows = [ { label: t('webctl.command'), value: webctl.command === '' ? t('common.unknown') : webctl.command, mono: true },
 { label: t('webctl.path'), value: webctl.resolvedPath === null ? t('webctl.pathMissing') : webctl.resolvedPath, mono: true },
 { label: t('webctl.version'), value: webctl.version === null ? t('common.unknown') : webctl.version, mono: true }, { label: t('webctl.tools'), value: t('webctl.toolCount', { n: webctl.toolCount }) },
-{ label: t('webctl.fallback'), value: webctl.fallbackCapability === null ? t('common.no') : t('common.yes') }, ]
+{ label: t('webctl.fallback'), value: webctl.fallbackCapability === null ? t('common.no') : t('common.yes') }, webctl.fallbackPreview === null || !webctl.fallbackPreview.configured
+? null
+: { label: t('webctl.fallbackPreview'), value: (webctl.fallbackPreview.name ?? '') + ':' + (webctl.fallbackPreview.tool ?? '')
++ (webctl.fallbackPreview.active ? '（' + t('common.yes') + '）' : '（' + t('common.no') + '）'), mono: true, }, ]
 const mcpRows = [ { label: t('mcp.server'), value: serverInfoLabel(mcp.serverInfo, t), mono: true },
 { label: t('mcp.protocol'), value: mcp.protocolVersion === null ? t('common.unknown') : mcp.protocolVersion, mono: true }, { label: t('mcp.tools'), value: t('webctl.toolCount', { n: mcp.toolCount }) },
 { label: t('mcp.registered'), value: mcp.registeredToolCount === null ? '' : t('webctl.toolCount', { n: mcp.registeredToolCount }) }, ]
