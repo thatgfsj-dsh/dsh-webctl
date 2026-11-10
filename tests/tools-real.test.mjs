@@ -1,0 +1,217 @@
+/**
+ * 真实工具调用集成测试（需要 `WEBCTL_BIN=/path/to/webctl`，否则跳过）。
+ *
+ * 目的：证明“插件看到的结果就是 webctl 的原始信封”。用最小 MCP 客户端离线调用
+ * 无网络依赖的工具（extract/search/links/tables/forms/embedded_data/json_query/caps/doc_text），
+ * 再用插件的 extractWebctlEnvelope / summarizeDegradation 解析真实结果。
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { extractWebctlEnvelope, summarizeDegradation } from '../src/host/degradations.mjs'
+
+const BIN = process.env.WEBCTL_BIN
+const skip = BIN === undefined || BIN === '' ? '未设置 WEBCTL_BIN' : false
+
+/** 示例静态页面（含链接、表格、表单、JSON-LD）。 */
+const SAMPLE_HTML = [
+  '<!doctype html><html><head><title>示例</title>',
+  '<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Demo"}</script>',
+  '</head><body>',
+  '<h1>Hello webctl</h1>',
+  '<a href="/docs" rel="next">文档</a>',
+  '<table><thead><tr><th>name</th><th>value</th></tr></thead><tbody><tr><td>alpha</td><td>1</td></tr></tbody></table>',
+  '<form action="/submit" method="post"><input name="q" value="x"><input type="submit"></form>',
+  '</body></html>',
+].join('')
+
+/** SPA 空壳页：没有服务端渲染内容，应显式降级。 */
+const SHELL_HTML = '<!doctype html><html><body><div id="root"></div><script src="/chunk.js"></script></body></html>'
+
+/**
+ * 最小 MCP stdio 客户端：initialize + tools/call。
+ */
+class McpClient {
+  /**
+   * @param {string} command - 可执行文件。
+   */
+  constructor(command) {
+    this.command = command
+    this.child = null
+    this.buffer = ''
+    this.nextId = 1
+    this.pending = new Map()
+  }
+
+  /**
+   * 启动并完成初始化。
+   * @returns {Promise<void>} 完成。
+   */
+  async start() {
+    this.child = spawn(this.command, ['mcp'], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    this.child.stdout.on('data', (chunk) => {
+      this.buffer += chunk.toString('utf8')
+      for (;;) {
+        const index = this.buffer.indexOf('\n')
+        if (index < 0) break
+        const line = this.buffer.slice(0, index).trim()
+        this.buffer = this.buffer.slice(index + 1)
+        if (line === '') continue
+        let message
+        try {
+          message = JSON.parse(line)
+        } catch {
+          continue
+        }
+        const pending = this.pending.get(message.id)
+        if (pending !== undefined) {
+          this.pending.delete(message.id)
+          pending(message)
+        }
+      }
+    })
+    await this.request('initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'dsh-webctl-test', version: '0.0.0' },
+    })
+    this.notify('notifications/initialized', {})
+  }
+
+  /**
+   * 发送请求并等待响应。
+   * @param {string} method - 方法。
+   * @param {object} params - 参数。
+   * @returns {Promise<object>} 响应。
+   */
+  request(method, params) {
+    const id = this.nextId
+    this.nextId += 1
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error('MCP 请求超时：' + method))
+      }, 15000)
+      this.pending.set(id, (message) => {
+        clearTimeout(timer)
+        if (message.error !== undefined) reject(new Error('MCP 错误：' + JSON.stringify(message.error)))
+        else resolve(message.result)
+      })
+      this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n')
+    })
+  }
+
+  /**
+   * 发送通知。
+   * @param {string} method - 方法。
+   * @param {object} params - 参数。
+   * @returns {void}
+   */
+  notify(method, params) {
+    this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n')
+  }
+
+  /**
+   * 调用一个工具并返回原始 CallToolResult。
+   * @param {string} name - 工具名。
+   * @param {object} args - 参数。
+   * @returns {Promise<object>} 结果。
+   */
+  async call(name, args) {
+    return await this.request('tools/call', { name, arguments: args })
+  }
+
+  /**
+   * 关闭进程。
+   * @returns {Promise<void>} 完成。
+   */
+  async close() {
+    if (this.child !== null) {
+      this.child.kill('SIGKILL')
+      this.child = null
+    }
+  }
+}
+
+/**
+ * 断言一个成功响应的 webctl 信封可被插件解析。
+ * @param {object} result - CallToolResult。
+ * @returns {object} 信封。
+ */
+function envelopeOf(result) {
+  assert.notEqual(result.isError, true, '工具不应返回 isError')
+  const envelope = extractWebctlEnvelope(result)
+  assert.notEqual(envelope, null, '应能从真实结果里解析出 webctl 信封')
+  return envelope
+}
+
+test('真实工具调用：离线工具结果都能被插件解析且语义保留', { skip }, async (t) => {
+  const client = new McpClient(BIN)
+  await client.start()
+  t.after(() => client.close())
+
+  const caps = envelopeOf(await client.call('caps', {}))
+  assert.equal(caps.ok, true)
+  assert.ok(Array.isArray(caps.data.tools) && caps.data.tools.length >= 15, 'caps 应报告工具面')
+
+  const extract = envelopeOf(await client.call('extract', { html: SAMPLE_HTML, selector: 'h1' }))
+  assert.equal(extract.ok, true)
+  assert.match(JSON.stringify(extract.data), /Hello webctl/)
+
+  const search = envelopeOf(await client.call('search', { html: SAMPLE_HTML, query: 'alpha' }))
+  assert.equal(search.ok, true)
+  assert.match(JSON.stringify(search.data), /alpha/)
+
+  const links = envelopeOf(await client.call('links', { html: SAMPLE_HTML, base: 'https://example.com/' }))
+  assert.equal(links.ok, true)
+  assert.match(JSON.stringify(links.data), /example\.com\/docs/)
+
+  const tables = envelopeOf(await client.call('tables', { html: SAMPLE_HTML }))
+  assert.equal(tables.ok, true)
+  assert.match(JSON.stringify(tables.data), /alpha/)
+
+  const forms = envelopeOf(await client.call('forms', { html: SAMPLE_HTML, base: 'https://example.com/' }))
+  assert.equal(forms.ok, true)
+  assert.ok(JSON.stringify(forms.data).includes('/submit'), '表单 action 应保留')
+
+  const embedded = envelopeOf(await client.call('embedded_data', { html: SAMPLE_HTML }))
+  assert.equal(embedded.ok, true)
+  assert.match(JSON.stringify(embedded.data), /headline/)
+
+  // 上游表达式需要 $ 前缀（实测：a.b[1] 会 PARSE；$.a.b[1] 才 OK）。
+  const jsonQuery = envelopeOf(await client.call('json_query', { json: '{"a":{"b":[1,2]}}', expression: '$.a.b[1]' }))
+  assert.equal(jsonQuery.ok, true)
+  assert.equal(jsonQuery.data?.value, 2)
+})
+
+test('真实结果：内联 HTML 空壳不触发降级（降级检测在取回路径，记录仍可解析）', { skip }, async (t) => {
+  const client = new McpClient(BIN)
+  await client.start()
+  t.after(() => client.close())
+
+  // 上游语义：extract 传 html 时不做“JS 空壳页”判定（那是 fetch/extract-by-url 的降级路径）；
+  // 这里锁定该行为，避免插件误以为内联 HTML 会出现 DEGRADED。
+  const result = await client.call('extract', { html: SHELL_HTML, selector: 'body' })
+  const envelope = envelopeOf(result)
+  assert.equal(envelope.code, 'OK')
+  assert.equal(envelope.meta?.trust, 'untrusted_page_content')
+  const record = summarizeDegradation({ tool: 'mcp__webctl__extract', envelope })
+  assert.equal(record.code, 'OK')
+  assert.equal(record.fallbackHint, null)
+})
+
+test('真实工具调用：doc_text 读取本地 HTML 文件', { skip }, async (t) => {
+  const client = new McpClient(BIN)
+  await client.start()
+  t.after(() => client.close())
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-webctl-doc-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const file = join(dir, 'doc.html')
+  await writeFile(file, '<html><body><p>文档正文 TOKEN-123</p></body></html>')
+  const envelope = envelopeOf(await client.call('doc_text', { path: file }))
+  assert.equal(envelope.ok, true)
+  assert.match(JSON.stringify(envelope.data), /TOKEN-123/)
+})

@@ -172,9 +172,12 @@ node scripts/build-client.mjs      # 重新生成 client.js
 node scripts/build-client.mjs --check
 node --check client.js             # 客户端语法
 
-# 契约守卫（需要真实 webctl 二进制；不设则自动跳过）
+# 真实二进制测试（不设 WEBCTL_BIN 则自动跳过）
 WEBCTL_BIN=/path/to/webctl node --test tests/contract.test.mjs
 # 断言：caps 与 tools/list 工具面一致、版本一致、两个 MCP 探测可并发成功
+WEBCTL_BIN=/path/to/webctl node --test tests/tools-real.test.mjs
+# 真实调用 9 个离线工具（extract/search/links/tables/forms/embedded_data/json_query/caps/doc_text），
+# 断言插件能解析真实信封、trust 标记与内联 HTML 不触发降级的上游语义
 ```
 
 真机冒烟（**不碰真实 `~/.dsh`**：临时 DSH_HOME + web 测试 profile + 随机端口，跑完删除）：

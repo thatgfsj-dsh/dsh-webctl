@@ -19,6 +19,7 @@
 - **展示元数据**：`locale/*.json` 的 `meta.title`/`meta.description` 与 `icon.svg`，插件管理页可见。
 - **降级观测与回退建议**：监听 `tools/result`，从 webctl 信封提取 `meta.actionable` 与 `fallback_hint`（`playwright_suitable`/`signals`/`embedded_data_tried`/`js_engine_suitable`），保留最近 20 条；状态接口输出 `recentDegradations` 与 `fallbackReadiness`，设置页新增“最近降级与回退”分区。仅当出现 `playwright_suitable=true` 且 Playwright 未就绪时给出 `PLAYWRIGHT_FALLBACK_UNAVAILABLE` 警告（先试 `embedded_data`，不要放弃 webctl 静态能力）。记录不含页面内容或凭据。
 - **端到端冒烟脚本**：`node scripts/e2e-smoke.mjs --webctl <path>` 在临时 `DSH_HOME` 里创建 web profile、安装插件、启动随机端口实例，断言 MCP 连通、`mcp__webctl__*` 注册数、状态接口字段与 client bundle 可下载；结束自动清理，缺 `dsh`/`webctl` 时以退出码 2 跳过。
+- **真实工具调用集成测试**：`WEBCTL_BIN=... node --test tests/tools-real.test.mjs` 用最小 MCP 客户端离线调用 9 个工具（extract/search/links/tables/forms/embedded_data/json_query/caps/doc_text），断言真实信封可被 `extractWebctlEnvelope` 解析、`trust` 标记保留、内联 HTML 不触发降级（上游语义）。
 - **真实二进制契约守卫**：`WEBCTL_BIN=... node --test tests/contract.test.mjs` 校验 `caps` 与 MCP `tools/list` 工具面/版本一致，并验证两次 MCP 探测可并发成功（对应 DSH 的探测 + 服务双启动约束）；未设置时自动跳过。
 - **二进制一致性诊断**：宿主已注册工具的集合与探测到的 `tools/list` 不一致时给出 `MCP_REGISTRATION_MISMATCH`（提示两行 `command` 对齐）；`MCP_REGISTERED` 现在只统计 `mcp__<serverName>__*`，不再把其他 MCP 服务器的工具算进来。
 - **README 诊断码表**：常见 code 的含义与处理。
