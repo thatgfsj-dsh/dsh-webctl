@@ -9,7 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DegradationLog, extractWebctlEnvelope, summarizeDegradation } from '../src/host/degradations.mjs'
@@ -233,14 +233,54 @@ test('真实工具调用：doc_text 读取本地 HTML 文件', { skip }, async (
  */
 async function startFixtureSite() {
   const server = createServer((request, response) => {
-    if (request.url === '/shell') {
+    const path = new URL(request.url, 'http://x').pathname
+    if (path === '/shell') {
       response.writeHead(200, { 'content-type': 'text/html' })
       response.end('<!doctype html><html><body><div id="root"></div><script src="/chunk.js"></script></body></html>')
       return
     }
-    if (request.url === '/static') {
+    if (path === '/static') {
       response.writeHead(200, { 'content-type': 'text/html' })
       response.end('<html><body><h1>Static OK</h1><p>hello</p></body></html>')
+      return
+    }
+    if (path.startsWith('/page/')) {
+      const n = Number(path.slice('/page/'.length))
+      const next = n < 3 ? '/page/' + String(n + 1) : null
+      response.writeHead(200, { 'content-type': 'text/html' })
+      response.end('<html><body><h1>Page ' + String(n) + '</h1>' + (next === null ? '' : '<a rel="next" href="' + next + '">next</a>') + '</body></html>')
+      return
+    }
+    if (path === '/form') {
+      response.writeHead(200, { 'content-type': 'text/html', 'set-cookie': 'sid=SUPERSECRET; Path=/' })
+      response.end('<html><body><form action="/submit" method="post"><input name="q" value="x"><input type="submit"></form></body></html>')
+      return
+    }
+    if (path === '/submit' && request.method === 'POST') {
+      response.writeHead(200, { 'content-type': 'text/html' })
+      response.end('<html><body><h1>submitted ok</h1></body></html>')
+      return
+    }
+    if (path === '/file.bin') {
+      response.writeHead(200, { 'content-type': 'application/octet-stream' })
+      response.end(Buffer.from([1, 2, 3, 4, 5]))
+      return
+    }
+    if (path === '/robots.txt') {
+      response.writeHead(200, { 'content-type': 'text/plain' })
+      response.end('User-agent: *\nDisallow: /private\nSitemap: http://127.0.0.1/sitemap.xml\n')
+      return
+    }
+    if (path === '/slow') {
+      setTimeout(() => {
+        response.writeHead(200, { 'content-type': 'text/html' })
+        response.end('<html><body>slow</body></html>')
+      }, 3000)
+      return
+    }
+    if (path === '/big') {
+      response.writeHead(200, { 'content-type': 'text/html' })
+      response.end('<html><body>' + 'x'.repeat(50000) + '</body></html>')
       return
     }
     response.writeHead(404)
@@ -328,4 +368,77 @@ test('真实会话工具：临时状态目录下 save/load/clear 且不产生降
 
   // 这些都是干净的 OK 信封，不应进入降级记录（避免把会话数据留在内存里）。
   assert.equal(log.list().length, 0)
+})
+test('真实 A 批：paginate / fill_form / download / robots', { skip }, async (t) => {
+  const site = await startFixtureSite()
+  t.after(() => site.close())
+  const client = new McpClient(BIN)
+  await client.start()
+  t.after(() => client.close())
+
+  const pages = envelopeOf(await client.call('paginate', { url: site.base + '/page/1', max_pages: 5 }))
+  assert.equal(pages.ok, true)
+  assert.equal(pages.data.pages.length, 3, '应跟随 rel=next 翻到第 3 页')
+  assert.equal(pages.data.pages[2].next, null)
+
+  const submitted = envelopeOf(await client.call('fill_form', {
+    url: site.base + '/form',
+    fields: { q: 'hello' },
+  }))
+  assert.equal(submitted.ok, true)
+  assert.equal(submitted.data.status, 200)
+  assert.match(JSON.stringify(submitted.data.html), /submitted ok/)
+
+  // 上游语义：octet-stream 走 download 会显式 UNSUPPORTED（不是静默成功）。
+  const downloaded = envelopeOf(await client.call('download', { url: site.base + '/file.bin' }))
+  assert.equal(downloaded.code, 'UNSUPPORTED')
+  assert.equal(downloaded.meta?.actionable?.reason, 'content-not-text')
+  assert.ok(Array.isArray(downloaded.meta?.actionable?.next_steps))
+
+  const robots = envelopeOf(await client.call('robots', { url: site.base + '/page/1' }))
+  assert.equal(robots.ok, true)
+  assert.equal(robots.data.available, true)
+  assert.ok(robots.data.rules.wildcard.rules.some((rule) => rule[1] === '/private'))
+  assert.ok(robots.data.rules.sitemaps.length >= 1)
+})
+
+test('真实 A 批：信封故障码 TIMEOUT / LIMIT 与导出确认 BLOCKED', { skip }, async (t) => {
+  const site = await startFixtureSite()
+  t.after(() => site.close())
+  const state = await mkdtemp(join(tmpdir(), 'dsh-webctl-cookie-'))
+  t.after(() => rm(state, { recursive: true, force: true }))
+  const client = new McpClient(BIN, { env: { ...process.env, WEBCTL_STATE_DIR: state } })
+  await client.start()
+  t.after(() => client.close())
+
+  const timeout = envelopeOf(await client.call('fetch', { url: site.base + '/slow', timeout_ms: 500 }))
+  assert.equal(timeout.ok, false)
+  assert.equal(timeout.code, 'TIMEOUT')
+
+  const limited = envelopeOf(await client.call('fetch', { url: site.base + '/big', max_bytes: 100 }))
+  assert.equal(limited.code, 'LIMIT')
+  assert.equal(limited.data.content.truncated, true)
+
+  // cookies 需要会话目录存在；先保存默认会话再导出。
+  const saved = envelopeOf(await client.call('session', { action: 'save', name: 'default' }))
+  assert.equal(saved.ok, true)
+  const view = envelopeOf(await client.call('cookies', { action: 'view' }))
+  assert.equal(view.ok, true)
+  assert.equal(view.data.count, 0)
+  assert.equal(JSON.stringify(view.data).includes('SUPERSECRET'), false, '查看结果不应出现 cookie 值')
+
+  const denied = envelopeOf(await client.call('cookies', { action: 'export' }))
+  assert.equal(denied.ok, false)
+  assert.equal(denied.code, 'BLOCKED', '导出必须显式确认')
+
+  const exported = envelopeOf(await client.call('cookies', { action: 'export', yes: true }))
+  assert.equal(exported.ok, true)
+  assert.equal(exported.data.values, '<redacted-in-response>', '响应里的值必须脱敏')
+  assert.equal(typeof exported.data.saved_to, 'string')
+  const info = await stat(exported.data.saved_to)
+  assert.equal(info.mode & 0o777, 0o600, '导出文件应为 0600')
+  const fileText = await readFile(exported.data.saved_to, 'utf8')
+  const parsed = JSON.parse(fileText)
+  assert.equal(parsed.version, 1)
+  assert.equal(Array.isArray(parsed.cookies), true)
 })
