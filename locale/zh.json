@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "webctl 状态",
+    "description": "在设置页检查 webctl 可执行文件、18 个 MCP 工具与 Playwright 回退通道是否就绪。"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "webctl status",
+    "description": "Inspect whether webctl, its 18 MCP tools and the Playwright fallback are ready, right from the settings page."
+  }
+}

@@ -15,4 +15,5 @@
 - **回退声明识别**：解析 `WEBCTL_FALLBACK_TOOL=<名字>:<工具名>`，供状态页显示 webctl 会指向哪个回退工具。
 - **受控探测**：全部子进程 `shell:false`，带超时与输出字节上限。
 - **只读诊断接口**：`GET /api/dsh-webctl/status`（`?refresh=1` 跳过后续缓存层）。
+- **设置页接线**：`dsh.client` 浏览器 bundle、`settings.section` 分区（id `dsh-webctl`、order 70）、`ctx.locale` 中英词典、插件展示元数据（`locale/*.json` 的 meta 与 `icon.svg`）；面板组件在后续 PR 补齐。
 - **离线单测**：假 webctl 覆盖 ready / missing / 版本失败 / 超时 / 路径解析。
