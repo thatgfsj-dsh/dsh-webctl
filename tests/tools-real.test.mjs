@@ -9,7 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DegradationLog, extractWebctlEnvelope, summarizeDegradation } from '../src/host/degradations.mjs'
@@ -38,9 +38,12 @@ const SHELL_HTML = '<!doctype html><html><body><div id="root"></div><script src=
 class McpClient {
   /**
    * @param {string} command - 可执行文件。
+   * @param {object} [options] - 选项。
+   * @param {NodeJS.ProcessEnv} [options.env] - 子进程环境。
    */
-  constructor(command) {
+  constructor(command, options = {}) {
     this.command = command
+    this.env = options.env
     this.child = null
     this.buffer = ''
     this.nextId = 1
@@ -52,7 +55,11 @@ class McpClient {
    * @returns {Promise<void>} 完成。
    */
   async start() {
-    this.child = spawn(this.command, ['mcp'], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    this.child = spawn(this.command, ['mcp'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      ...(this.env === undefined ? {} : { env: this.env }),
+    })
     this.child.stdout.on('data', (chunk) => {
       this.buffer += chunk.toString('utf8')
       for (;;) {
@@ -286,4 +293,39 @@ test('真实降级链路：按 URL 的 extract 零命中也是 DEGRADED', { skip
   assert.equal(envelope.code, 'DEGRADED')
   assert.equal(envelope.meta?.degraded_from, 'js-render')
   assert.equal(envelope.data?.observed_matches, 0)
+})
+test('真实会话工具：临时状态目录下 save/load/clear 且不产生降级记录', { skip }, async (t) => {
+  const state = await mkdtemp(join(tmpdir(), 'dsh-webctl-session-'))
+  t.after(() => rm(state, { recursive: true, force: true }))
+  const client = new McpClient(BIN, { env: { ...process.env, WEBCTL_STATE_DIR: state } })
+  await client.start()
+  t.after(() => client.close())
+
+  const log = new DegradationLog()
+  const record = (name, args) => client.call(name, args).then((result) => {
+    log.recordToolResult({ name: 'mcp__webctl__' + name }, { isError: false, value: result })
+    return envelopeOf(result)
+  })
+
+  const list = await record('session', { action: 'list' })
+  assert.equal(list.ok, true)
+  assert.deepEqual(list.data.sessions, [])
+
+  const save = await record('session', { action: 'save', name: 'e2e' })
+  assert.equal(save.ok, true)
+  assert.equal(typeof save.data.path, 'string')
+  assert.ok(save.data.path.startsWith(state), '会话文件应落在临时状态目录内')
+  const saved = await stat(save.data.path)
+  assert.equal(saved.mode & 0o777, 0o600, '会话文件应为 0600')
+
+  const load = await record('session', { action: 'load', name: 'e2e' })
+  assert.equal(load.ok, true)
+  assert.deepEqual(load.data.cookies, [])
+
+  const clear = await record('session', { action: 'clear', name: 'e2e' })
+  assert.equal(clear.ok, true)
+  assert.equal(clear.data.removed, true)
+
+  // 这些都是干净的 OK 信封，不应进入降级记录（避免把会话数据留在内存里）。
+  assert.equal(log.list().length, 0)
 })

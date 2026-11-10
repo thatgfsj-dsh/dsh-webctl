@@ -24,8 +24,8 @@
 | `forms` | ✅ 真实 | 同上 |
 | `fill_form` | ✗ | 有副作用（提交表单），只做人工点测 |
 | `paginate` | ✗ | 需多页站点，人工/联调 |
-| `session` | ✅ 部分 | 真实调用 `list`；save/load/clear 与并发状态目录待人工 |
-| `cookies` | ✗ | 需要 session 状态目录；凭据敏感，人工验证导出确认与脱敏 |
+| `session` | ✅ 真实 | 临时 `WEBCTL_STATE_DIR` 下 list/save/load/clear，会话文件 0600 且落在状态目录内 |
+| `cookies` | ✗ | 需要已绑定且存活的会话（`session not found` 才算正常）；导出确认与脱敏需人工验证 |
 | `json_query` | ✅ 真实 | 实测表达式需 `$` 前缀 |
 | `doc_text` | ✅ 真实 | 临时 HTML 文件 |
 | `embedded_data` | ✅ 真实 | JSON-LD 抽取 |
