@@ -19,6 +19,7 @@
 - **展示元数据**：`locale/*.json` 的 `meta.title`/`meta.description` 与 `icon.svg`，插件管理页可见。
 - **降级观测与回退建议**：监听 `tools/result`，从 webctl 信封提取 `meta.actionable` 与 `fallback_hint`（`playwright_suitable`/`signals`/`embedded_data_tried`/`js_engine_suitable`），保留最近 20 条；状态接口输出 `recentDegradations` 与 `fallbackReadiness`，设置页新增“最近降级与回退”分区。仅当出现 `playwright_suitable=true` 且 Playwright 未就绪时给出 `PLAYWRIGHT_FALLBACK_UNAVAILABLE` 警告（先试 `embedded_data`，不要放弃 webctl 静态能力）。记录不含页面内容或凭据。
 - **端到端冒烟脚本**：`node scripts/e2e-smoke.mjs --webctl <path>` 在临时 `DSH_HOME` 里创建 web profile、安装插件、启动随机端口实例，断言 MCP 连通、`mcp__webctl__*` 注册数、状态接口字段与 client bundle 可下载；结束自动清理，缺 `dsh`/`webctl` 时以退出码 2 跳过。
+- **真实降级链路测试**：本地 127.0.0.1 fixture 站点提供静态页与 JS 空壳页；真实 `fetch` 空壳页得到 `DEGRADED`（`degraded_from=js-render` + `actionable`），并走 `tools/result → DegradationLog` 断言记录内容；按 URL 的 `extract` 零命中同样为 `DEGRADED`。新增 `session list` 真实调用覆盖。
 - **验收矩阵**：`docs/ACCEPTANCE.md` 区分自动化覆盖（单测/契约/真实调用/E2E）与需要人工或联网验证的工具，并给出发布前检查单。
 - **真实工具调用集成测试**：`WEBCTL_BIN=... node --test tests/tools-real.test.mjs` 用最小 MCP 客户端离线调用 9 个工具（extract/search/links/tables/forms/embedded_data/json_query/caps/doc_text），断言真实信封可被 `extractWebctlEnvelope` 解析、`trust` 标记保留、内联 HTML 不触发降级（上游语义）。
 - **真实二进制契约守卫**：`WEBCTL_BIN=... node --test tests/contract.test.mjs` 校验 `caps` 与 MCP `tools/list` 工具面/版本一致，并验证两次 MCP 探测可并发成功（对应 DSH 的探测 + 服务双启动约束）；未设置时自动跳过。

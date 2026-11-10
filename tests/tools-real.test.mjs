@@ -8,10 +8,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:http'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { extractWebctlEnvelope, summarizeDegradation } from '../src/host/degradations.mjs'
+import { DegradationLog, extractWebctlEnvelope, summarizeDegradation } from '../src/host/degradations.mjs'
 
 const BIN = process.env.WEBCTL_BIN
 const skip = BIN === undefined || BIN === '' ? '未设置 WEBCTL_BIN' : false
@@ -185,6 +186,10 @@ test('真实工具调用：离线工具结果都能被插件解析且语义保�
   const jsonQuery = envelopeOf(await client.call('json_query', { json: '{"a":{"b":[1,2]}}', expression: '$.a.b[1]' }))
   assert.equal(jsonQuery.ok, true)
   assert.equal(jsonQuery.data?.value, 2)
+
+  const session = envelopeOf(await client.call('session', { action: 'list' }))
+  assert.equal(session.ok, true)
+  assert.ok(Array.isArray(session.data?.sessions), 'session list 应返回数组')
 })
 
 test('真实结果：内联 HTML 空壳不触发降级（降级检测在取回路径，记录仍可解析）', { skip }, async (t) => {
@@ -214,4 +219,71 @@ test('真实工具调用：doc_text 读取本地 HTML 文件', { skip }, async (
   const envelope = envelopeOf(await client.call('doc_text', { path: file }))
   assert.equal(envelope.ok, true)
   assert.match(JSON.stringify(envelope.data), /TOKEN-123/)
+})
+/**
+ * 起一个只服务两张页面的本地 HTTP 站点（不访问外网）。
+ * @returns {Promise<{base: string, close: () => Promise<void>}>} 地址与关闭函数。
+ */
+async function startFixtureSite() {
+  const server = createServer((request, response) => {
+    if (request.url === '/shell') {
+      response.writeHead(200, { 'content-type': 'text/html' })
+      response.end('<!doctype html><html><body><div id="root"></div><script src="/chunk.js"></script></body></html>')
+      return
+    }
+    if (request.url === '/static') {
+      response.writeHead(200, { 'content-type': 'text/html' })
+      response.end('<html><body><h1>Static OK</h1><p>hello</p></body></html>')
+      return
+    }
+    response.writeHead(404)
+    response.end('not found')
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+  const base = 'http://127.0.0.1:' + address.port
+  return { base, close: () => new Promise((resolve) => server.close(() => resolve())) }
+}
+
+test('真实降级链路：本地 JS 空壳页的 fetch 产生 DEGRADED 并被插件记录', { skip }, async (t) => {
+  const site = await startFixtureSite()
+  t.after(() => site.close())
+  const client = new McpClient(BIN)
+  await client.start()
+  t.after(() => client.close())
+
+  const staticResult = await client.call('fetch', { url: site.base + '/static' })
+  const staticEnvelope = envelopeOf(staticResult)
+  assert.equal(staticEnvelope.code, 'OK', '静态页应成功')
+  assert.equal(staticEnvelope.meta?.trust, 'untrusted_page_content')
+
+  const shellResult = await client.call('fetch', { url: site.base + '/shell' })
+  const shellEnvelope = envelopeOf(shellResult)
+  assert.equal(shellEnvelope.code, 'DEGRADED', 'JS 空壳页应显式降级')
+  assert.equal(shellEnvelope.meta?.degraded_from, 'js-render')
+  assert.equal(typeof shellEnvelope.meta?.actionable?.reason, 'string')
+  assert.ok(Array.isArray(shellEnvelope.meta?.actionable?.next_steps))
+
+  // 走插件真实路径：tools/result -> DegradationLog
+  const log = new DegradationLog()
+  const record = log.recordToolResult({ name: 'mcp__webctl__fetch' }, { isError: false, value: shellResult })
+  assert.notEqual(record, null, '降级结果应被记录')
+  assert.equal(record.code, 'DEGRADED')
+  assert.equal(record.degradedFrom, 'js-render')
+  assert.ok(record.reason !== null)
+  assert.deepEqual(record.nextSteps, shellEnvelope.meta?.actionable?.next_steps ?? [])
+})
+
+test('真实降级链路：按 URL 的 extract 零命中也是 DEGRADED', { skip }, async (t) => {
+  const site = await startFixtureSite()
+  t.after(() => site.close())
+  const client = new McpClient(BIN)
+  await client.start()
+  t.after(() => client.close())
+
+  const result = await client.call('extract', { url: site.base + '/shell', selector: 'h1' })
+  const envelope = envelopeOf(result)
+  assert.equal(envelope.code, 'DEGRADED')
+  assert.equal(envelope.meta?.degraded_from, 'js-render')
+  assert.equal(envelope.data?.observed_matches, 0)
 })
