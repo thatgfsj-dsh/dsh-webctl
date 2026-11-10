@@ -19,6 +19,7 @@
 - **展示元数据**：`locale/*.json` 的 `meta.title`/`meta.description` 与 `icon.svg`，插件管理页可见。
 - **降级观测与回退建议**：监听 `tools/result`，从 webctl 信封提取 `meta.actionable` 与 `fallback_hint`（`playwright_suitable`/`signals`/`embedded_data_tried`/`js_engine_suitable`），保留最近 20 条；状态接口输出 `recentDegradations` 与 `fallbackReadiness`，设置页新增“最近降级与回退”分区。仅当出现 `playwright_suitable=true` 且 Playwright 未就绪时给出 `PLAYWRIGHT_FALLBACK_UNAVAILABLE` 警告（先试 `embedded_data`，不要放弃 webctl 静态能力）。记录不含页面内容或凭据。
 - **端到端冒烟脚本**：`node scripts/e2e-smoke.mjs --webctl <path>` 在临时 `DSH_HOME` 里创建 web profile、安装插件、启动随机端口实例，断言 MCP 连通、`mcp__webctl__*` 注册数、状态接口字段与 client bundle 可下载；结束自动清理，缺 `dsh`/`webctl` 时以退出码 2 跳过。
+- **故障矩阵脚本**：`scripts/e2e-faults.mjs` 在隔离实例里制造“webctl 不存在”与“禁用工具行”两种故障，断言状态接口仍返回可读诊断（`WEBCTL_MISSING` / `MCP_NOT_REGISTERED`）且注册工具数为 0。
 - **发布流程文档**：`docs/RELEASE.md` 给出自动化命令、人工检查单、tag/Release 步骤与回滚方式。
 - **真实会话工具测试**：临时 `WEBCTL_STATE_DIR` 下真实调用 `session list/save/load/clear`，断言会话文件落在状态目录内、权限 0600，且干净 OK 结果不会进入降级记录。
 - **无残留子进程守卫**：真实二进制契约测试新增“连续 5 次 MCP 探测后不新增存活 `webctl mcp` 进程”检查（POSIX）。

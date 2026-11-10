@@ -188,7 +188,15 @@ node scripts/e2e-smoke.mjs --webctl /path/to/webctl
 #       状态接口字段齐全、client bundle 可下载且含 settings.section
 ```
 
-退出码：0 通过；1 失败；2 跳过（缺少 `dsh` 或 `webctl`）。加 `--keep` 保留临时目录便于排查。
+故障矩阵（同样隔离）：
+
+```bash
+node scripts/e2e-faults.mjs --webctl /path/to/webctl
+# A: webctl 不存在 -> WEBCTL_MISSING + 0 个已注册工具，状态页仍 200
+# B: 禁用 mcp-client-webctl -> webctl ready + 0 已注册工具 + MCP_NOT_REGISTERED
+```
+
+退出码：0 通过；1 失败；2 跳过（缺少 `dsh` 或 `webctl`）。加 `--keep` 保留临时目录便于排查（仅 `e2e-smoke` 支持）。
 
 ## 版本兼容
 
