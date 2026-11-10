@@ -6,6 +6,7 @@
  * 2) `--version` 与 `caps.data.version` 一致；
  * 3) DSH 的“先探测、再服务 / 允许并发启动”约束：两个 MCP 探测可同时成功。
  */
+import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { probeMcpServer } from '../src/host/mcp-probe.mjs'
@@ -45,4 +46,28 @@ test('四舍五入式保护：探测结束后没有残留子进程', { skip: ski
   const result = await probeMcpServer({ command: webctl.resolvedPath, timeoutMs: 15000 })
   assert.equal(result.state, 'ready')
   assert.ok(Date.now() - started < 15000, '探测应在超时前结束')
+})
+/**
+ * 统计当前存活的 `webctl mcp` 子进程数量（仅 POSIX；用 pgrep）。
+ * @returns {number} 数量。
+ */
+function countWebctlMcpProcesses() {
+  const result = spawnSync('pgrep', ['-fc', 'webctl mcp'], { encoding: 'utf8' })
+  if (result.status !== 0) return 0
+  const value = Number.parseInt(result.stdout.trim(), 10)
+  return Number.isFinite(value) ? value : 0
+}
+
+test('探测结束后不留下 webctl mcp 子进程', { skip: skip ? '未设置 WEBCTL_BIN' : process.platform === 'win32' ? 'Windows 跳过 pgrep 检查' : false }, async () => {
+  const webctl = await probeWebctl({ command: BIN, timeoutMs: 10000 })
+  assert.equal(webctl.state, 'ready')
+  const before = countWebctlMcpProcesses()
+  for (let index = 0; index < 5; index += 1) {
+    const result = await probeMcpServer({ command: webctl.resolvedPath, timeoutMs: 15000 })
+    assert.equal(result.state, 'ready', '第 ' + String(index + 1) + ' 次探测应成功')
+  }
+  // 给内核回收留一点时间，再确认没有新增存活进程。
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const after = countWebctlMcpProcesses()
+  assert.ok(after <= before, '探测不应留下存活的 webctl mcp 进程（before=' + String(before) + ', after=' + String(after) + '）')
 })
