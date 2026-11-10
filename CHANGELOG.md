@@ -17,4 +17,5 @@
 - **只读诊断接口**：`GET /api/dsh-webctl/status`（`?refresh=1` 跳过后续缓存层）。
 - **设置页状态面板**：`settings.section` 分区（id `dsh-webctl`、order 70）展示 webctl 状态/路径/版本/工具数、MCP 握手与 tools/list、宿主已注册 `mcp__webctl__*`、Playwright 包与浏览器状态、`WEBCTL_FALLBACK_TOOL` 声明、launchSmoke 结果、可折叠工具清单与诊断列表；带刷新/重试、加载态、AbortController 中止与中英文本地化。
 - **展示元数据**：`locale/*.json` 的 `meta.title`/`meta.description` 与 `icon.svg`，插件管理页可见。
+- **降级观测与回退建议**：监听 `tools/result`，从 webctl 信封提取 `meta.actionable` 与 `fallback_hint`（`playwright_suitable`/`signals`/`embedded_data_tried`/`js_engine_suitable`），保留最近 20 条；状态接口输出 `recentDegradations` 与 `fallbackReadiness`，设置页新增“最近降级与回退”分区。仅当出现 `playwright_suitable=true` 且 Playwright 未就绪时给出 `PLAYWRIGHT_FALLBACK_UNAVAILABLE` 警告（先试 `embedded_data`，不要放弃 webctl 静态能力）。记录不含页面内容或凭据。
 - **离线单测**：假 webctl 覆盖 ready / missing / 版本失败 / 超时 / 路径解析。

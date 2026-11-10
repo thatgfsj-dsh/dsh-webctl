@@ -18,10 +18,12 @@ export class StatusService {
    * @param {object} config - 归一化后的插件配置。
    * @param {object} [deps] - 可选依赖。
    * @param {() => object|undefined} [deps.getTools] - 读取宿主 tools 服务的函数。
+   * @param {() => object[]} [deps.getDegradations] - 读取最近降级记录的函数。
    */
   constructor(config, deps = {}) {
     this.config = config
     this.getTools = deps.getTools ?? null
+    this.getDegradations = deps.getDegradations ?? null
     /** @type {{at: number, value: object}|null} */
     this.cache = null
     /** @type {Promise<object>|null} */
@@ -77,9 +79,24 @@ export class StatusService {
       mcp,
       playwright: playwrightStatus,
       registeredTools: this.listRegisteredTools(),
+      degradations: this.listDegradations(),
       config: this.config,
       durationMs: Date.now() - startedAt,
     })
+  }
+
+  /**
+   * 读取最近降级记录（没有观测者时返回空数组）。
+   * @returns {object[]} 记录。
+   */
+  listDegradations() {
+    if (this.getDegradations === null) return []
+    try {
+      const records = this.getDegradations()
+      return Array.isArray(records) ? records.slice(0, 20) : []
+    } catch {
+      return []
+    }
   }
 
   /**
@@ -109,7 +126,7 @@ export class StatusService {
  * @returns {object} 状态。
  */
 export function composeStatus(input) {
-  const { webctl, mcp, playwright, registeredTools, config, durationMs } = input
+  const { webctl, mcp, playwright, registeredTools, degradations, config, durationMs } = input
   const capsTools = webctl.caps?.tools?.map((tool) => tool.name) ?? []
   const mcpTools = Array.isArray(mcp.tools) ? mcp.tools : []
   const diagnostics = []
@@ -163,6 +180,27 @@ export function composeStatus(input) {
     }
   }
 
+  const recent = Array.isArray(degradations) ? degradations.slice(0, 10) : []
+  const fallbackRecords = recent.filter((record) => record !== null && typeof record === 'object' && record.fallbackHint !== null && record.fallbackHint.playwrightSuitable === true)
+  const fallbackReadiness = {
+    recentDegradations: recent.length,
+    playwrightSuitableSeen: fallbackRecords.length > 0,
+    playwrightReady: playwright.state === 'ready',
+    advice: fallbackRecords.length === 0
+      ? null
+      : playwright.state === 'ready'
+        ? '最近有适合 Playwright 的降级；回退工具可用，可按 webctl 的 next_steps 继续。'
+        : '最近有适合 Playwright 的降级，但本机未就绪：安装 Playwright（含浏览器）后再回退，或继续使用 embedded_data / 已启用的 js_render。',
+  }
+  if (fallbackRecords.length > 0 && playwright.state !== 'ready') {
+    diagnostics.push({
+      level: 'warn',
+      code: 'PLAYWRIGHT_FALLBACK_UNAVAILABLE',
+      message: '最近 ' + fallbackRecords.length + ' 次降级建议 Playwright 回退，但 Playwright 未就绪（当前 ' + playwright.state + '）。',
+      hint: '先试 embedded_data；仍拿不到内容时再安装 Playwright。不要因为缺 Playwright 放弃 webctl 的静态能力。',
+    })
+  }
+
   if (playwright.state === 'ready') {
     diagnostics.push({ level: 'ok', code: 'PLAYWRIGHT_READY', message: 'Playwright 回退通道可用。' })
   } else if (playwright.state === 'missing') {
@@ -201,6 +239,8 @@ export function composeStatus(input) {
       error: mcp.error,
     },
     playwright,
+    recentDegradations: recent,
+    fallbackReadiness,
     diagnostics,
   }
 }
