@@ -16,16 +16,16 @@
 
 | 工具 | 自动化 | 说明 |
 | --- | --- | --- |
-| `fetch` | 间接 | 由 E2E/状态探测覆盖连接层；真实取回需联网 |
-| `extract` | ✅ 真实 | 真实 MCP 调用（内联 HTML）+ 信封解析 |
+| `fetch` | ✅ 本地站点 | 本机 127.0.0.1 fixture：静态页 OK + JS 空壳页 DEGRADED |
+| `extract` | ✅ 真实 | 内联 HTML + 本地站点按 URL（空壳页 DEGRADED） |
 | `search` | ✅ 真实 | 同上 |
 | `links` | ✅ 真实 | 同上 |
 | `tables` | ✅ 真实 | 同上 |
 | `forms` | ✅ 真实 | 同上 |
 | `fill_form` | ✗ | 有副作用（提交表单），只做人工点测 |
 | `paginate` | ✗ | 需多页站点，人工/联调 |
-| `session` | ✗ | 需要 session 状态目录，人工验证 |
-| `cookies` | ✗ | 凭据敏感，人工验证导出确认与脱敏 |
+| `session` | ✅ 部分 | 真实调用 `list`；save/load/clear 与并发状态目录待人工 |
+| `cookies` | ✗ | 需要 session 状态目录；凭据敏感，人工验证导出确认与脱敏 |
 | `json_query` | ✅ 真实 | 实测表达式需 `$` 前缀 |
 | `doc_text` | ✅ 真实 | 临时 HTML 文件 |
 | `embedded_data` | ✅ 真实 | JSON-LD 抽取 |
