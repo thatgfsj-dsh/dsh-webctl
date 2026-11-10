@@ -132,6 +132,8 @@ webctl 0.2.3 起支持 `WEBCTL_FALLBACK_TOOL=<名字>:<工具名>`：声明后�
 
 ## 安全
 
+完整威胁模型与默认姿态见 [docs/SECURITY.md](docs/SECURITY.md)。
+
 - 只用 `spawn(argv)`、`shell: false`；路径来自配置，不从网页内容拼接。
 - 探测输出有字节上限与超时；诊断里不包含页面内容、cookie 或凭据。
 - 工具结果按 webctl 的信封原样交给模型，网页内容仍是不可信输入（`trust: untrusted_page_content`）。
